@@ -3,7 +3,6 @@ import math
 import matplotlib.pyplot as plt
 
 
-
 class Particle():
 
     def __init__(self, x, y):
@@ -14,9 +13,24 @@ class Particle():
         self.r: float = 1.0  # particle radius
         self.m: float = 1.0  # particle mass
         self.collision_count: int = 0
+        self.g = 9.8  # gravitational acceleration
 
     def collision(self):
         pass
+
+    def predict_state(self,dt:float):
+        """Predict the trajectory of the particle after time dt under gravity g."""
+        g = self.g
+        new_x = self.x + self.vx * dt # Kinematic equation for horizontal motion
+        new_y = self.y + self.vy * dt - 0.5 * g * dt**2 # Kinematic equation for vertical motion under gravity
+        new_vy = self.vy - g * dt # Update vertical velocity due to gravity
+        return new_x, new_y, self.vx, new_vy
+    
+    def time_to_wall(self,left_wall:float, right_wall:float, bottom_wall:float, top_wall:float):
+        """Calculate time to collide with the walls of the box. Return the time to the first wall"""
+
+        #time to left wall
+        t_left = 
 
 class Box():
 
@@ -52,6 +66,7 @@ def initialize(N: int, width: float, height: float):
     for i in range(N):
         particles.append(Particle(X[i], Y[i]))
     return particles, box
+
 
 def init_velocities_equiparition(particles:list[Particle] ,temperature: int, k_B:float = 1.0):
     """Initialize particle velocities according to the equipartition theorem."""
@@ -122,33 +137,7 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
     return fig, ax
 
 
-def run_demo():
-    """Run demonstration of particle visualization with different velocity configurations."""
-    print("=== Microheat Visualization Demo ===\n")
 
-    # Demo 1: All particles at same temperature
-    print("Demo 1: All particles at temperature T=10")
-    particles1, box1 = initialize(N=16, width=100.0, height=100.0)
-    init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
-    visualize_particles(particles1, box1,
-                       title="Equipartition: All Particles at T=10",
-                       save_file="demo1_equipartition.png")
-    plt.close()
-
-    # Demo 2: One hot particle among cold ones
-    print("Demo 2: One hot particle (T=50) among cold particles (T=5)")
-    particles2, box2 = initialize(N=16, width=100.0, height=100.0)
-    init_hot_particle(particles2, hot_index=0, hot_temperature=50, cold_temperature=5, k_B=1.0)
-    visualize_particles(particles2, box2,
-                       title="One Hot Particle (center) at T=50, Others at T=5",
-                       save_file="demo2_hot_particle.png")
-    plt.close()
-
-    print("\nDemo complete! Check the saved PNG files.")
-
-
-if __name__ == "__main__":
-    run_demo()
 
 
 
