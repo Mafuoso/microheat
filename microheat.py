@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 
 
@@ -13,10 +14,10 @@ class Particle():
         self.r: float = 1.0  # particle radius
         self.m: float = 1.0  # particle mass
         self.collision_count: int = 0
-        
-    def collision():
-        
-    
+
+    def collision(self):
+        pass
+
 class Box():
 
     def __init__(self, width, height):
@@ -49,7 +50,7 @@ def initialize(N: int, width: float, height: float):
     box = Box(width, height)
     X, Y = box.make_grid(N)
     for i in range(N):
-        particles[i]  = Particle(X[i], Y[i])
+        particles.append(Particle(X[i], Y[i]))
     return particles, box
 
 def init_velocities_equiparition(particles:list[Particle] ,temperature: int, k_B:float = 1.0):
@@ -70,6 +71,84 @@ def init_hot_particle(particles:list[Particle] ,hot_index:int, hot_temperature: 
     theta = np.random.uniform(0, 2*np.pi)
     particles[hot_index].vx = speed * np.cos(theta) # choosing random x and y components
     particles[hot_index].vy = speed * np.sin(theta)
+
+
+def visualize_particles(particles: list[Particle], box: Box, title: str = "Particle Visualization", save_file: str = None):
+    """Visualize particles and their velocity vectors."""
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    # Extract particle positions and velocities
+    x_positions = [p.x for p in particles]
+    y_positions = [p.y for p in particles]
+    vx = [p.vx for p in particles]
+    vy = [p.vy for p in particles]
+
+    # Calculate speeds for color coding
+    speeds = [np.sqrt(p.vx**2 + p.vy**2) for p in particles]
+
+    # Plot particles with color based on speed
+    scatter = ax.scatter(x_positions, y_positions, c=speeds, s=200, alpha=0.7,
+                         cmap='hot', edgecolors='black', linewidth=1.5)
+
+    # Plot velocity vectors
+    ax.quiver(x_positions, y_positions, vx, vy, angles='xy', scale_units='xy',
+              scale=0.5, color='blue', alpha=0.6, width=0.003)
+
+    # Draw box boundaries
+    ax.plot([0, box.width, box.width, 0, 0],
+            [0, 0, box.height, box.height, 0],
+            'k-', linewidth=2)
+
+    # Set plot limits and labels
+    ax.set_xlim(-box.width*0.1, box.width*1.1)
+    ax.set_ylim(-box.height*0.1, box.height*1.1)
+    ax.set_aspect('equal')
+    ax.set_xlabel('X Position', fontsize=12)
+    ax.set_ylabel('Y Position', fontsize=12)
+    ax.set_title(title, fontsize=14)
+
+    # Add colorbar
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label('Speed', fontsize=12)
+
+    plt.tight_layout()
+
+    if save_file:
+        plt.savefig(save_file, dpi=150, bbox_inches='tight')
+        print(f"Saved visualization to {save_file}")
+    else:
+        plt.show()
+
+    return fig, ax
+
+
+def run_demo():
+    """Run demonstration of particle visualization with different velocity configurations."""
+    print("=== Microheat Visualization Demo ===\n")
+
+    # Demo 1: All particles at same temperature
+    print("Demo 1: All particles at temperature T=10")
+    particles1, box1 = initialize(N=16, width=100.0, height=100.0)
+    init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
+    visualize_particles(particles1, box1,
+                       title="Equipartition: All Particles at T=10",
+                       save_file="demo1_equipartition.png")
+    plt.close()
+
+    # Demo 2: One hot particle among cold ones
+    print("Demo 2: One hot particle (T=50) among cold particles (T=5)")
+    particles2, box2 = initialize(N=16, width=100.0, height=100.0)
+    init_hot_particle(particles2, hot_index=0, hot_temperature=50, cold_temperature=5, k_B=1.0)
+    visualize_particles(particles2, box2,
+                       title="One Hot Particle (center) at T=50, Others at T=5",
+                       save_file="demo2_hot_particle.png")
+    plt.close()
+
+    print("\nDemo complete! Check the saved PNG files.")
+
+
+if __name__ == "__main__":
+    run_demo()
 
 
 
