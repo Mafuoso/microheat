@@ -29,9 +29,45 @@ class Particle():
     def time_to_wall(self,left_wall:float, right_wall:float, bottom_wall:float, top_wall:float):
         """Calculate time to collide with the walls of the box. Return the time to the first wall"""
 
-        #time to left wall
-        t_left = 
-
+        #check velocity direction
+        if self.vx > 0:
+            time_to_right = ((right_wall - self.r) - self.x) / self.vx
+            time_to_left = float('inf')
+        elif self.vx < 0:
+            time_to_left = (left_wall + self.r - self.x) / self.vx 
+            time_to_right = float('inf')
+        else:
+            time_to_right = float('inf')
+            time_to_left = float('inf')
+            
+        
+        #top wall
+        top_equation = [-0.5*self.g, self.vy, self.y- top_wall + self.r,] # coefficients of the quadratic equation   
+        top_roots = np.roots(top_equation)
+        top_roots = top_roots[np.isreal(top_roots) & (top_roots >= 0)].real # keep only real and positive roots
+        time_to_top = min(top_roots) if len(top_roots) > 0 else float('inf')
+        
+        #bottom wall 
+        bottom_equation = [-0.5*self.g, self.vy, self.y - self.r,]  # coefficients of the quadratic equation
+        bottom_roots = np.roots(bottom_equation)
+        bottom_roots = bottom_roots[np.isreal(bottom_roots) & (bottom_roots >= 0)].real # keep only real and positive roots
+        time_to_bottom = min(bottom_roots) if len(bottom_roots) > 0 else float('inf')
+        
+        #Return time to collision and which wall we are colliding with
+        times = [time_to_left, time_to_right, time_to_bottom, time_to_top]
+        min_time = min(times)
+        if times.index(min_time) == 0:
+            wall = 'left'
+        elif times.index(min_time) == 1:
+            wall = 'right'
+        elif times.index(min_time) == 2:
+            wall = 'bottom'
+        else:
+            wall = 'top'
+            
+        return min_time, wall
+    
+                
 class Box():
 
     def __init__(self, width, height):
