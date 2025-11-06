@@ -3,7 +3,6 @@ import math
 import matplotlib.pyplot as plt
 
 
-
 class Particle():
 
     def __init__(self, x, y):
@@ -14,10 +13,61 @@ class Particle():
         self.r: float = 1.0  # particle radius
         self.m: float = 1.0  # particle mass
         self.collision_count: int = 0
+        self.g = 9.8  # gravitational acceleration
 
     def collision(self):
         pass
 
+    def predict_state(self,dt:float):
+        """Predict the trajectory of the particle after time dt under gravity g."""
+        g = self.g
+        new_x = self.x + self.vx * dt # Kinematic equation for horizontal motion
+        new_y = self.y + self.vy * dt - 0.5 * g * dt**2 # Kinematic equation for vertical motion under gravity
+        new_vy = self.vy - g * dt # Update vertical velocity due to gravity
+        return new_x, new_y, self.vx, new_vy
+    
+    def time_to_wall(self,left_wall:float, right_wall:float, bottom_wall:float, top_wall:float):
+        """Calculate time to collide with the walls of the box. Return the time to the first wall"""
+
+        #check velocity direction
+        if self.vx > 0:
+            time_to_right = ((right_wall - self.r) - self.x) / self.vx
+            time_to_left = float('inf')
+        elif self.vx < 0:
+            time_to_left = (left_wall + self.r - self.x) / self.vx 
+            time_to_right = float('inf')
+        else:
+            time_to_right = float('inf')
+            time_to_left = float('inf')
+            
+        
+        #top wall
+        top_equation = [-0.5*self.g, self.vy, self.y- top_wall + self.r,] # coefficients of the quadratic equation   
+        top_roots = np.roots(top_equation)
+        top_roots = top_roots[np.isreal(top_roots) & (top_roots >= 0)].real # keep only real and positive roots
+        time_to_top = min(top_roots) if len(top_roots) > 0 else float('inf')
+        
+        #bottom wall 
+        bottom_equation = [-0.5*self.g, self.vy, self.y - self.r,]  # coefficients of the quadratic equation
+        bottom_roots = np.roots(bottom_equation)
+        bottom_roots = bottom_roots[np.isreal(bottom_roots) & (bottom_roots >= 0)].real # keep only real and positive roots
+        time_to_bottom = min(bottom_roots) if len(bottom_roots) > 0 else float('inf')
+        
+        #Return time to collision and which wall we are colliding with
+        times = [time_to_left, time_to_right, time_to_bottom, time_to_top]
+        min_time = min(times)
+        if times.index(min_time) == 0:
+            wall = 'left'
+        elif times.index(min_time) == 1:
+            wall = 'right'
+        elif times.index(min_time) == 2:
+            wall = 'bottom'
+        else:
+            wall = 'top'
+            
+        return min_time, wall
+    
+                
 class Box():
 
     def __init__(self, width, height):
@@ -52,6 +102,7 @@ def initialize(N: int, width: float, height: float):
     for i in range(N):
         particles.append(Particle(X[i], Y[i]))
     return particles, box
+
 
 def init_velocities_equiparition(particles:list[Particle] ,temperature: int, k_B:float = 1.0):
     """Initialize particle velocities according to the equipartition theorem."""
@@ -165,10 +216,6 @@ def run_demo():
 
 if __name__ == "__main__":
     run_demo()
-
-
-
-
 
 
     
