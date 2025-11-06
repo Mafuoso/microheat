@@ -173,11 +173,49 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
     return fig, ax
 
 
+def run_demo():
+    """Run demonstration of particle visualization with different velocity configurations.
+
+    Uses sparse particle configurations appropriate for ideal gas behavior.
+    """
+    print("=== Microheat Visualization Demo ===\n")
+    print("Note: Using sparse configurations appropriate for ideal gas")
+    print("(particles should be far apart compared to their size)\n")
+
+    # Demo 1: All particles at same temperature - SPARSE configuration
+    print("Demo 1: All particles at temperature T=10 (9 particles in 300x300 box)")
+    particles1, box1 = initialize(N=9, width=300.0, height=300.0)
+    init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
+    visualize_particles(particles1, box1,
+                       title="Ideal Gas: Equipartition at T=10 (Sparse Configuration)",
+                       save_file="demo1_equipartition.png")
+    plt.close()
+
+    # Calculate and print spacing info
+    spacing1 = 300.0 / 4  # for 3x3 grid
+    print(f"   → Particle spacing: ~{spacing1:.1f} units (particle radius = 1.0)")
+    print(f"   → Mean free path / particle size ratio: ~{spacing1/2:.1f}\n")
+
+    # Demo 2: One hot particle among cold ones - SPARSE configuration
+    print("Demo 2: One hot particle (T=50) among cold particles (T=5)")
+    print("        (16 particles in 300x300 box)")
+    particles2, box2 = initialize(N=16, width=300.0, height=300.0)
+    init_hot_particle(particles2, hot_index=0, hot_temperature=50, cold_temperature=5, k_B=1.0)
+    visualize_particles(particles2, box2,
+                       title="Ideal Gas: One Hot Particle at T=50, Others at T=5",
+                       save_file="demo2_hot_particle.png")
+    plt.close()
+
+    spacing2 = 300.0 / 5  # for 4x4 grid
+    print(f"   → Particle spacing: ~{spacing2:.1f} units (particle radius = 1.0)")
+    print(f"   → Mean free path / particle size ratio: ~{spacing2/2:.1f}\n")
+
+    print("Demo complete! Check the saved PNG files.")
+    print("Particles are now appropriately sparse for ideal gas modeling.")
 
 
-
-
-
+if __name__ == "__main__":
+    run_demo()
 
 
     
