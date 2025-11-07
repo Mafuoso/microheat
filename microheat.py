@@ -80,6 +80,30 @@ class Particle():
         else:
             return min(times)
         
+    def collide_with_wall(self,wall:str):
+        """Update velocity after collision with wall."""
+        if wall == 'left' or wall == 'right':
+            self.vx = -self.vx
+        elif wall == 'top' or wall == 'bottom':
+            self.vy = -self.vy
+        self.collision_count += 1
+    
+    def collide_with_particle(self, particle):
+        """Update velocities after collision with another particle."""
+        x1 = (self.x,self.y)
+        x2 = (particle.x, particle.y)
+        v1 = (self.vx, self.vy)
+        v2 = (particle.vx, particle.vy)
+        delta_v = np.array(v2) - np.array(v1)
+        dx = np.array(x2) - np.array(x1)
+        n_hat = dx / np.linalg.norm(dx)
+        v1prime = np.array(v1) + np.dot(delta_v,n_hat)*n_hat # equal mass collision hence why the velocity update is symmetric
+        v2prime = np.array(v2) - np.dot(delta_v,n_hat)*n_hat
+        self.vx, self.vy = v1prime
+        particle.vx, particle.vy = v2prime
+        self.collision_count += 1
+        particle.collision_count += 1
+        
                 
 class Box():
     
