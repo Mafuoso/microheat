@@ -434,7 +434,7 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
     data_width = box.width * 1.2  # plot shows box + 10% padding each side
     points_per_data_unit = (fig_width_inches * 72) / data_width  # 72 points per inch
     particle_radius = particles[0].r if particles else 1.0
-    marker_size = (2 * particle_radius * points_per_data_unit) ** 2
+    marker_size = (8 * particle_radius * points_per_data_unit) ** 2
 
     # Initialize plot elements
     scatter = ax.scatter([], [], s=marker_size, alpha=0.7, cmap='hot',
