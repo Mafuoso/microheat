@@ -184,6 +184,17 @@ def init_hot_particle(particles:list[Particle] ,hot_index:int, hot_temperature: 
     particles[hot_index].vy = speed * np.sin(theta)
 
 
+def advance_particles(particles: list[Particle], dt: float):
+    """advance all particles by time dt."""
+    for p in particles:
+        new_x, new_y, new_vx, new_vy = p.predict_state(dt)
+        p.x = new_x
+        p.y = new_y
+        p.vx = new_vx
+        p.vy = new_vy
+        
+        
+        
 def visualize_particles(particles: list[Particle], box: Box, title: str = "Particle Visualization", save_file: str = None):
     """Visualize particles and their velocity vectors."""
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -232,6 +243,32 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
 
     return fig, ax
 
-
+def main():
+    max_time = 10
+    N = 25
+    width = 100
+    height = 100
+    particles, box = initialize(N, width, height)
+    X, Y = box.make_grid(N)
+    events = intialize_events(particles, box)
+    current_time = 0
+    while current_time < max_time:
+        (event_time, i, j, count_i, count_j) = heapq.heappop(events) #Get the next event, if this is a wall collision j = wall name str else j = particle index
+        
+        #validitiy check on the event
+        if particles[i].collision_count != count_i:
+            continue
+        if isinstance(j,int) and particles[j].collision_count != count_j:
+            continue
+            
     
-    
+        #Advance all particles to event time
+        advance_particles(particles, event_time - current_time)
+        current_time = event_time
+        
+        #Process all collisions
+        if isinstance(j, int):  # Particle-Particle collision
+            particles[i].collide_with_particle(particles[j])
+        else:  # Particle-Wall collision (j is a string)
+            particles[i].collide_with_wall(j)
+            
