@@ -73,10 +73,10 @@ pip install numpy matplotlib tqdm
 ### Quick Start - Run the Demo
 
 ```bash
-python3 animate.py
+python3 microheat.py
 ```
 
-This generates animated simulations showing particle dynamics with collision physics.
+This generates animated simulations showing particle dynamics with collision physics. The main loop is in `microheat.py`, which imports visualization functions from `animate.py`.
 
 ### Using in Your Own Code
 

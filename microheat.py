@@ -207,3 +207,34 @@ def predict_new_collisions(particles,i,box, events,current_time):
             count_j = q.collision_count
             if time_to_particle < float('inf'):
                 heapq.heappush(events, (time_to_particle + current_time, i, j, count_i, count_j))  # (time, particle i index, particle j index, count_i, count_j)
+
+
+def run_demo():
+    """
+    Run demonstration animations of the ideal gas simulation.
+
+    Shows smooth animation with interpolated motion between collision events.
+    Uses sparse particle configurations appropriate for ideal gas behavior.
+    """
+    from animate import animate_simulation
+
+    print("=== Microheat Smooth Animation Demo ===\n")
+    print("Note: Animation uses smooth interpolation between collision events")
+    print("      Using sparse configurations appropriate for ideal gas\n")
+
+    # Demo 1: All particles at same temperature - SPARSE configuration
+    print("Demo 1: Equipartition - All particles at temperature T=10")
+    print("        (25 particles in 3000x3000 box)\n")
+    particles1, box1 = initialize(N=25, width=3000.0, height=3000.0)
+    init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
+
+    animate_simulation(particles1, box1, max_time=20.0, fps=10,
+                      save_file="demo1_equipartition_animation.gif",
+                      title="Ideal Gas: Equipartition at T=10")
+
+    print()
+
+
+if __name__ == "__main__":
+    run_demo()
+

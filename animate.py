@@ -322,31 +322,3 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
         plt.show()
 
     return anim
-
-
-def run_demo():
-    """
-    Run demonstration animations of the ideal gas simulation.
-
-    Shows smooth animation with interpolated motion between collision events.
-    Uses sparse particle configurations appropriate for ideal gas behavior.
-    """
-    print("=== Microheat Smooth Animation Demo ===\n")
-    print("Note: Animation uses smooth interpolation between collision events")
-    print("      Using sparse configurations appropriate for ideal gas\n")
-
-    # Demo 1: All particles at same temperature - SPARSE configuration
-    print("Demo 1: Equipartition - All particles at temperature T=10")
-    print("        (25 particles in 3000x3000 box)\n")
-    particles1, box1 = initialize(N=25, width=3000.0, height=3000.0)
-    init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
-
-    animate_simulation(particles1, box1, max_time=20.0, fps=10,
-                      save_file="demo1_equipartition_animation.gif",
-                      title="Ideal Gas: Equipartition at T=10")
-
-    print()
-
-
-if __name__ == "__main__":
-    run_demo()
