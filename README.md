@@ -42,7 +42,7 @@ Two methods for setting up initial conditions:
 2. **`init_hot_particle(particles, hot_index, hot_temperature, cold_temperature, k_B=1.0)`**
    - Sets one particle to high temperature ("hot")
    - All others at low temperature ("cold")
-   - Allows studying energy transfer dynamics
+
 
 ### Visualization
 - **Static plots**: Particles displayed as circles with accurate physical sizes, color-coded by speed
@@ -137,31 +137,16 @@ microheat.animate_simulation(particles, box,
    - Measure temperature gradients (spatial distribution)
    - Record collision statistics and rates
    - Monitor energy conservation
-
-2. **Optimize performance**
-   - Reduce event count for long simulations
-   - Consider spatial hashing for collision detection
-   - Optimize frame generation for animations
-
-3. **Enhanced visualization**
-   - Heat maps showing temperature distribution
-   - Energy distribution histograms
-   - Trajectory tracking for individual particles
-
-### Future Extensions
-- Temperature-controlled walls (thermal reservoirs)
-- Variable particle masses and radii
-- Statistical mechanics observables (pressure, entropy)
-- 3D extension of the simulation
-- Compare with theoretical predictions (Maxwell-Boltzmann distribution, etc.)
+   - Multirun capabillties with single particle tracking for correlations ie is higher temperature corrrelated with a higher extent? 
 
 ## Project Philosophy
 
-This is about **getting it right**, not getting it fast. Small particle numbers with exact dynamics are preferred over approximate large-scale simulations. The goal is to understand the fundamental microscopic mechanism, not to simulate realistic systems (yet).
+This is about **getting it right**, not getting it fast. Small particle numbers with exact dynamics are preferred over approximate large-scale simulations. The goal is to understand the fundamental microscopic mechanism, not to simulate realistic systems. Ideally (hahah) we will be able to verify the theory of heat rising based on particle collisions in ideal gasses. Though I am still designing the experiment to verify the theory and perhaps I will elucidate on what I think is happening here as well. 
 
 ## Contributing
 
 This is a research/exploration project. Questions, suggestions, and discussions about the physics are welcome!
+Email Me: mu2faroo@uwaterloo.ca
 
 ## License
 
