@@ -142,7 +142,7 @@ def initialize(N: int, width: float, height: float):
         particles.append(Particle(X[i], Y[i]))
     return particles, box
 
-def intialize_events(particles:list[Particle],box:Box):
+def initialize_events(particles:list[Particle],box:Box):
     """Initialize the event priority queue with wall and particle collision events."""
     events = []
     
@@ -195,7 +195,23 @@ def advance_particles(particles: list[Particle], dt: float):
         p.vy = new_vy
         
         
-        
+def predict_new_collisions(particles,i,box, events,current_time):
+    """Predict new collisions after an event has occurred."""
+    p = particles[i]
+    # Wall collision
+    time_to_wall, wall = p.time_to_wall(box.width, box.height)
+    count_i = p.collision_count
+    if time_to_wall < float('inf'):
+        heapq.heappush(events, (time_to_wall + current_time, i, wall, count_i, 0))  # (time, particle index, wall, count_i, count_j=0 for wall collisions)
+
+    # Particle collisions
+    for j, q in enumerate(particles):
+        if j != i:
+            time_to_particle = p.time_to_particle(q)
+            count_j = q.collision_count
+            if time_to_particle < float('inf'):
+                heapq.heappush(events, (time_to_particle + current_time, i, j, count_i, count_j))  # (time, particle i index, particle j index, count_i, count_j)
+                
 def visualize_particles(particles: list[Particle], box: Box, title: str = "Particle Visualization", save_file: str = None):
     """Visualize particles and their velocity vectors."""
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -259,7 +275,7 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
         title: Title for the animation
     """
     # Initialize events
-    events = intialize_events(particles, box)
+    events = initialize_events(particles, box)
     current_time = 0.0
     frame_dt = 1.0 / fps  # Time between frames
 
@@ -306,45 +322,11 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
         # Process collision
         if isinstance(j, int):  # Particle-Particle collision
             particles[i].collide_with_particle(particles[j])
-            # Add new events for both particles
-            for particle_idx in [i, j]:
-                p = particles[particle_idx]
-                # Wall collision
-                time_to_wall, wall = p.time_to_wall(box.width, box.height)
-                if time_to_wall < float('inf'):
-                    heapq.heappush(events, (current_time + time_to_wall, particle_idx, wall,
-                                           p.collision_count, 0))
-                # Particle collisions
-                for k, q in enumerate(particles):
-                    if k != particle_idx:
-                        time_to_particle = p.time_to_particle(q)
-                        if time_to_particle < float('inf'):
-                            if particle_idx < k:
-                                heapq.heappush(events, (current_time + time_to_particle,
-                                                       particle_idx, k, p.collision_count, q.collision_count))
-                            else:
-                                heapq.heappush(events, (current_time + time_to_particle,
-                                                       k, particle_idx, q.collision_count, p.collision_count))
+            predict_new_collisions(particles, i, box, events, current_time)
+            predict_new_collisions(particles, j, box, events, current_time)
         else:  # Particle-Wall collision (j is a string)
             particles[i].collide_with_wall(j)
-            # Add new events for this particle
-            p = particles[i]
-            # Wall collision
-            time_to_wall, wall = p.time_to_wall(box.width, box.height)
-            if time_to_wall < float('inf'):
-                heapq.heappush(events, (current_time + time_to_wall, i, wall,
-                                       p.collision_count, 0))
-            # Particle collisions
-            for k, q in enumerate(particles):
-                if k != i:
-                    time_to_particle = p.time_to_particle(q)
-                    if time_to_particle < float('inf'):
-                        if i < k:
-                            heapq.heappush(events, (current_time + time_to_particle,
-                                                   i, k, p.collision_count, q.collision_count))
-                        else:
-                            heapq.heappush(events, (current_time + time_to_particle,
-                                                   k, i, q.collision_count, p.collision_count))
+            predict_new_collisions(particles, i, box, events, current_time)
 
     # Capture final frames
     while next_frame_time <= max_time:
@@ -498,4 +480,3 @@ def run_demo():
 
 if __name__ == "__main__":
     run_demo()
-
