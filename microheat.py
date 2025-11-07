@@ -114,24 +114,22 @@ class Box():
         self.height: float = height
         self.gravity_strength: float = 9.8 
         
-    def make_grid(self, N: int):
+    def make_grid(self, N: int, particle_radius: float = 1.0):
         """Create a grid of N particles evenly spaced in the box."""
-        # Calculate grid dimensions - make it roughly square
         n_cols = int(math.ceil(math.sqrt(N)))
         n_rows = int(math.ceil(N / n_cols))
 
-        # Create evenly spaced arrays
-        x_array = np.linspace(0, self.width, n_cols + 2)[1:-1]  # Exclude boundaries
-        y_array = np.linspace(0, self.height, n_rows + 2)[1:-1]  # Exclude boundaries
+        # Use full box, with margin for particle radius
+        margin = 2 * particle_radius
+        x_array = np.linspace(margin, self.width - margin, n_cols)
+        y_array = np.linspace(margin, self.height - margin, n_rows)
 
-        # Create meshgrid
         X, Y = np.meshgrid(x_array, y_array)
 
-        # Flatten and return only N particles (in case n_rows * n_cols > N)
         X_flat = X.flatten()[:N]
         Y_flat = Y.flatten()[:N]
 
-        return X_flat, Y_flat 
+        return X_flat, Y_flat
     
     
 def initialize(N: int, width: float, height: float):
@@ -455,41 +453,15 @@ def run_demo():
     # Demo 1: All particles at same temperature - SPARSE configuration
     print("Demo 1: Equipartition - All particles at temperature T=10")
     print("        (9 particles in 300x300 box)\n")
-    particles1, box1 = initialize(N=9, width=300.0, height=300.0)
+    particles1, box1 = initialize(N=25, width=3000.0, height=3000.0)
     init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
 
-    spacing1 = 300.0 / 4  # for 3x3 grid
-    print(f"   → Particle spacing: ~{spacing1:.1f} units (particle radius = 1.0)")
-    print(f"   → Mean free path / particle size ratio: ~{spacing1/2:.1f}")
-
-    animate_simulation(particles1, box1, max_time=10.0, event_display_time=2.0, fps=30,
+    animate_simulation(particles1, box1, max_time=20.0, event_display_time=1.0, fps=10,
                       save_file="demo1_equipartition_animation.gif",
                       title="Ideal Gas: Equipartition at T=10")
 
     print()
 
-    # Demo 2: One hot particle among cold ones - SPARSE configuration
-    print("Demo 2: Heat Transfer - One hot particle among cold particles")
-    print("        (16 particles in 300x300 box)")
-    print("        Hot particle at T=50, others at T=5\n")
-    particles2, box2 = initialize(N=16, width=300.0, height=300.0)
-    init_hot_particle(particles2, hot_index=0, hot_temperature=50, cold_temperature=5, k_B=1.0)
-
-    spacing2 = 300.0 / 5  # for 4x4 grid
-    print(f"   → Particle spacing: ~{spacing2:.1f} units (particle radius = 1.0)")
-    print(f"   → Mean free path / particle size ratio: ~{spacing2/2:.1f}")
-
-    animate_simulation(particles2, box2, max_time=10.0, event_display_time=2.0, fps=30,
-                      save_file="demo2_heat_transfer_animation.gif",
-                      title="Ideal Gas: One Hot Particle at T=50, Others at T=5")
-
-    print("\n" + "="*50)
-    print("Demo complete! Check the saved GIF files:")
-    print("  - demo1_equipartition_animation.gif (event-by-event)")
-    print("  - demo2_heat_transfer_animation.gif (event-by-event)")
-    print("\nEach collision event is shown for 2 seconds.")
-    print("="*50)
-
-
+   
 if __name__ == "__main__":
     run_demo()
