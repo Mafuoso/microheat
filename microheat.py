@@ -3,6 +3,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import heapq
+from tqdm import tqdm
 
 
 class Particle():
@@ -262,14 +263,16 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
 
 
 def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10.0,
-                       fps: int = 30, save_file: str = None, title: str = "Ideal Gas Simulation"):
+                       event_display_time: float = 2.0, fps: int = 30,
+                       save_file: str = None, title: str = "Ideal Gas Simulation"):
     """
-    Animate the particle simulation using event-driven dynamics.
+    Animate the particle simulation showing each collision event.
 
     Args:
         particles: List of Particle objects
         box: Box object containing the simulation boundaries
         max_time: Total simulation time
+        event_display_time: How long to display each event (seconds)
         fps: Frames per second for the animation
         save_file: If provided, save animation to this file (e.g., 'sim.gif' or 'sim.mp4')
         title: Title for the animation
@@ -277,31 +280,19 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
     # Initialize events
     events = initialize_events(particles, box)
     current_time = 0.0
-    frame_dt = 1.0 / fps  # Time between frames
 
-    # Storage for frame data
-    frames_data = []
-    next_frame_time = 0.0
+    # Storage for event snapshots
+    event_snapshots = []
 
-    # Run simulation and capture frames
+    # Count total events for progress bar
+    total_events = len(events)
+
+    # Run simulation and capture each event
     print(f"Running simulation for {max_time:.2f} time units...")
+    pbar = tqdm(total=total_events, desc="Processing events", unit="event")
+
+    event_count = 0
     while current_time < max_time and len(events) > 0:
-        # Capture frame if we've reached the next frame time
-        while next_frame_time <= current_time and next_frame_time < max_time:
-            # Store particle state for this frame
-            frame = {
-                'x': [p.x for p in particles],
-                'y': [p.y for p in particles],
-                'vx': [p.vx for p in particles],
-                'vy': [p.vy for p in particles],
-                'time': next_frame_time
-            }
-            frames_data.append(frame)
-            next_frame_time += frame_dt
-
-        if len(events) == 0:
-            break
-
         # Get next event
         (event_time, i, j, count_i, count_j) = heapq.heappop(events)
 
@@ -319,36 +310,51 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
         advance_particles(particles, event_time - current_time)
         current_time = event_time
 
-        # Process collision
+        # Determine event type for display
         if isinstance(j, int):  # Particle-Particle collision
+            event_type = f"Particle {i} ↔ Particle {j}"
             particles[i].collide_with_particle(particles[j])
             predict_new_collisions(particles, i, box, events, current_time)
             predict_new_collisions(particles, j, box, events, current_time)
-        else:  # Particle-Wall collision (j is a string)
+        else:  # Particle-Wall collision
+            event_type = f"Particle {i} → {j.capitalize()} wall"
             particles[i].collide_with_wall(j)
             predict_new_collisions(particles, i, box, events, current_time)
 
-    # Capture final frames
-    while next_frame_time <= max_time:
-        frame = {
+        # Capture snapshot after collision
+        snapshot = {
             'x': [p.x for p in particles],
             'y': [p.y for p in particles],
             'vx': [p.vx for p in particles],
             'vy': [p.vy for p in particles],
-            'time': next_frame_time
+            'time': current_time,
+            'event_type': event_type,
+            'event_num': event_count
         }
-        frames_data.append(frame)
-        next_frame_time += frame_dt
+        event_snapshots.append(snapshot)
+        event_count += 1
+        pbar.update(1)
 
-    print(f"Simulation complete. Captured {len(frames_data)} frames.")
+    pbar.close()
+    print(f"Simulation complete. Captured {len(event_snapshots)} collision events.")
+
+    # Create expanded frame list - each event shown for specified duration
+    frames_per_event = int(event_display_time * fps)
+    frames_data = []
+    for snapshot in event_snapshots:
+        # Repeat this snapshot for the display duration
+        for _ in range(frames_per_event):
+            frames_data.append(snapshot)
+
+    print(f"Creating animation with {len(frames_data)} total frames ({len(event_snapshots)} events × {frames_per_event} frames/event)...")
 
     # Create animation
     fig, ax = plt.subplots(figsize=(10, 10))
 
     # Calculate speed limits for consistent colorbar
     all_speeds = []
-    for frame in frames_data:
-        speeds = [np.sqrt(vx**2 + vy**2) for vx, vy in zip(frame['vx'], frame['vy'])]
+    for snapshot in event_snapshots:
+        speeds = [np.sqrt(vx**2 + vy**2) for vx, vy in zip(snapshot['vx'], snapshot['vy'])]
         all_speeds.extend(speeds)
     vmin, vmax = 0, max(all_speeds) if all_speeds else 1
 
@@ -357,8 +363,11 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
                         edgecolors='black', linewidth=1.5, vmin=vmin, vmax=vmax, c=[])
     quiver_artists = []  # Store quiver objects
     time_text = ax.text(0.02, 0.98, '', transform=ax.transAxes,
-                       verticalalignment='top', fontsize=12,
+                       verticalalignment='top', fontsize=11,
                        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    event_text = ax.text(0.02, 0.02, '', transform=ax.transAxes,
+                        verticalalignment='bottom', fontsize=10,
+                        bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
 
     # Draw box boundaries
     ax.plot([0, box.width, box.width, 0, 0],
@@ -381,7 +390,8 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
         scatter.set_offsets(np.empty((0, 2)))
         scatter.set_array(np.array([]))
         time_text.set_text('')
-        return [scatter, time_text]
+        event_text.set_text('')
+        return [scatter, time_text, event_text]
 
     def update(frame_idx):
         nonlocal quiver_artists
@@ -407,10 +417,11 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
                                   color='blue', alpha=0.6, width=0.003)
             quiver_artists.append(quiver_new)
 
-        # Update time text
+        # Update text displays
         time_text.set_text(f'Time: {frame["time"]:.2f}')
+        event_text.set_text(f'Event #{frame["event_num"]}: {frame["event_type"]}')
 
-        return [scatter, time_text] + quiver_artists
+        return [scatter, time_text, event_text] + quiver_artists
 
     anim = FuncAnimation(fig, update, init_func=init, frames=len(frames_data),
                         interval=1000/fps, blit=False, repeat=True)
@@ -434,11 +445,12 @@ def run_demo():
     """
     Run demonstration animations of the ideal gas simulation.
 
+    Shows event-driven animation where each collision is displayed for 2 seconds.
     Uses sparse particle configurations appropriate for ideal gas behavior.
     """
-    print("=== Microheat Animation Demo ===\n")
-    print("Note: Using sparse configurations appropriate for ideal gas")
-    print("(particles should be far apart compared to their size)\n")
+    print("=== Microheat Event-Driven Animation Demo ===\n")
+    print("Note: Each collision event will be shown for 2 seconds")
+    print("      Using sparse configurations appropriate for ideal gas\n")
 
     # Demo 1: All particles at same temperature - SPARSE configuration
     print("Demo 1: Equipartition - All particles at temperature T=10")
@@ -450,7 +462,7 @@ def run_demo():
     print(f"   → Particle spacing: ~{spacing1:.1f} units (particle radius = 1.0)")
     print(f"   → Mean free path / particle size ratio: ~{spacing1/2:.1f}")
 
-    animate_simulation(particles1, box1, max_time=5.0, fps=30,
+    animate_simulation(particles1, box1, max_time=10.0, event_display_time=2.0, fps=30,
                       save_file="demo1_equipartition_animation.gif",
                       title="Ideal Gas: Equipartition at T=10")
 
@@ -467,14 +479,15 @@ def run_demo():
     print(f"   → Particle spacing: ~{spacing2:.1f} units (particle radius = 1.0)")
     print(f"   → Mean free path / particle size ratio: ~{spacing2/2:.1f}")
 
-    animate_simulation(particles2, box2, max_time=5.0, fps=30,
+    animate_simulation(particles2, box2, max_time=10.0, event_display_time=2.0, fps=30,
                       save_file="demo2_heat_transfer_animation.gif",
                       title="Ideal Gas: One Hot Particle at T=50, Others at T=5")
 
     print("\n" + "="*50)
     print("Demo complete! Check the saved GIF files:")
-    print("  - demo1_equipartition_animation.gif")
-    print("  - demo2_heat_transfer_animation.gif")
+    print("  - demo1_equipartition_animation.gif (event-by-event)")
+    print("  - demo2_heat_transfer_animation.gif (event-by-event)")
+    print("\nEach collision event is shown for 2 seconds.")
     print("="*50)
 
 
