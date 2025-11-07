@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import heapq
 
 
 class Particle():
@@ -15,8 +16,6 @@ class Particle():
         self.collision_count: int = 0
         self.g = 9.8  # gravitational acceleration
 
-    def collision(self):
-        pass
 
     def predict_state(self,dt:float):
         """Predict the trajectory of the particle after time dt under gravity g."""
@@ -26,14 +25,14 @@ class Particle():
         new_vy = self.vy - g * dt # Update vertical velocity due to gravity
         return new_x, new_y, self.vx, new_vy
     
-    def time_to_wall(self,left_wall:float, right_wall:float, bottom_wall:float, top_wall:float):
+    def time_to_wall(self, right_wall:float, top_wall:float):
         """Calculate time to collide with the walls of the box. Return the time to the first wall"""
         #Check velocity direction
         if self.vx > 0:
             time_to_right = ((right_wall - self.r) - self.x) / self.vx
             time_to_left = float('inf')
         elif self.vx < 0:
-            time_to_left = (left_wall + self.r - self.x) / self.vx 
+            time_to_left = (self.r - self.x) / self.vx 
             time_to_right = float('inf')
         else:
             time_to_right = float('inf')
@@ -75,7 +74,7 @@ class Particle():
                        2*(deltax*delta_vx + deltay*delta_vy),
                        deltax**2 + deltay**2 - (self.r + particle.r)**2]
         times = np.roots(coeff_array)
-        times = times[np.isreal(times) & (times >= 0)].real # keep only real and positive roots
+        times = times[np.isreal(times) & (times >= 1e-10)].real # keep only real and positive roots
         if len(times) == 0:
             return float('inf')
         else:
@@ -108,7 +107,6 @@ class Box():
 
         return X_flat, Y_flat 
     
-    def 
     
 def initialize(N: int, width: float, height: float):
     """Initialize N particles in a box of given width and height."""
@@ -119,6 +117,28 @@ def initialize(N: int, width: float, height: float):
         particles.append(Particle(X[i], Y[i]))
     return particles, box
 
+def intialize_events(particles:list[Particle],box:Box):
+    """Initialize the event priority queue with wall and particle collision events."""
+    events = []
+    
+    # Wall collision events
+    for i, p in enumerate(particles):
+        time_to_wall, wall = p.time_to_wall(box.width, box.height)
+        count_i = p.collision_count
+        if time_to_wall < float('inf'):
+            heapq.heappush(events, (time_to_wall,i, wall, count_i, 0)) # (time, particle index, wall, count_i, count_j=0 for wall collisions)
+    # Particle collision events
+    
+    for i,p in enumerate(particles):
+        for j in range(i+1, len(particles)):
+            q = particles[j]
+            time_to_particle = p.time_to_particle(q)
+            count_i = p.collision_count
+            count_j = q.collision_count
+            if time_to_particle < float('inf'):
+                heapq.heappush(events, (time_to_particle, i, j, count_i, count_j)) # (time, particle i index, particle j index, count_i, count_j)
+    return events
+    
 
 def init_velocities_equiparition(particles:list[Particle] ,temperature: int, k_B:float = 1.0):
     """Initialize particle velocities according to the equipartition theorem."""
