@@ -24,9 +24,12 @@ Standard explanations of heat rising rely on macroscopic properties like density
 ### Physics Model
 - **Particles**: Point masses with position (x, y), velocity (vx, vy), radius, and mass
 - **Box**: Rectangular container with reflecting boundaries
-- **Collisions**: Will implement particle-particle elastic collisions (in progress)
+- **Collisions**: Event-driven elastic collision detection and response
+  - Particle-particle collisions
+  - Particle-wall collisions
+  - Conservation of momentum and energy
 - **Temperature**: Defined through kinetic energy / velocity distributions
-- **No gravity** (yet) - testing pure kinetic effects first
+- **Gravity**: Ballistic motion with gravitational acceleration (g = 9.8)
 
 ### Velocity Initialization
 Two methods for setting up initial conditions:
@@ -42,20 +45,23 @@ Two methods for setting up initial conditions:
    - Allows studying energy transfer dynamics
 
 ### Visualization
-- Particles displayed as circles, color-coded by speed
-- Velocity vectors shown as arrows
-- Real-time visualization of the microscopic dynamics
+- **Static plots**: Particles displayed as circles with accurate physical sizes, color-coded by speed
+- **Velocity vectors**: Shown as arrows indicating direction and magnitude
+- **Smooth animations**: Interpolated motion between collision events using ballistic trajectories
+- **Event-driven simulation**: Efficient collision detection using priority queue
+- **Progress tracking**: Visual feedback with tqdm progress bars during simulation
 
 ## Installation & Requirements
 
 ```bash
-pip install numpy matplotlib
+pip install numpy matplotlib tqdm
 ```
 
 **Dependencies:**
 - Python 3.x
 - NumPy (array operations, math functions)
-- Matplotlib (visualization)
+- Matplotlib (visualization and animation)
+- tqdm (progress bars)
 
 ## Usage
 
@@ -65,18 +71,18 @@ pip install numpy matplotlib
 python3 microheat.py
 ```
 
-This generates two visualization examples:
-1. All particles at equilibrium temperature
-2. One hot particle among cold particles
+This generates animated simulations showing particle dynamics with collision physics.
 
 ### Using in Your Own Code
+
+#### Static Visualization
 
 ```python
 import microheat
 
-# Initialize particles in a grid
+# Initialize particles in a grid (uses spacing based on particle radius)
 N = 16  # number of particles
-particles, box = microheat.initialize(N, width=100.0, height=100.0)
+particles, box = microheat.initialize(N, width=300.0, height=300.0)
 
 # Set up velocities - Method 1: All same temperature
 microheat.init_velocities_equiparition(particles, temperature=10, k_B=1.0)
@@ -86,35 +92,68 @@ microheat.init_hot_particle(particles, hot_index=0,
                            hot_temperature=50,
                            cold_temperature=5, k_B=1.0)
 
-# Visualize
+# Create static visualization
 microheat.visualize_particles(particles, box,
                              title="My Simulation",
                              save_file="output.png")
 ```
 
+#### Animated Simulation
+
+```python
+import microheat
+
+# Initialize sparse configuration (ideal gas approximation)
+particles, box = microheat.initialize(N=25, width=3000.0, height=3000.0)
+microheat.init_velocities_equiparition(particles, temperature=10, k_B=1.0)
+
+# Create smooth animation with interpolated motion
+microheat.animate_simulation(particles, box,
+                            max_time=20.0,  # simulation duration
+                            fps=30,          # frames per second
+                            save_file="simulation.gif",
+                            title="Ideal Gas Simulation")
+```
+
+**Animation Features:**
+- Smooth interpolation between collision events using ballistic trajectories
+- Accurate particle sizes in visualization
+- Progress bar shows simulation status
+- Frame count automatically calculated based on physics timing
+
 ## Roadmap / Next Steps
 
-### Immediate Priorities
-1. **Implement collision detection** between particles
-   - Particle-particle elastic collisions
-   - Conservation of momentum and energy
+### Completed ✓
+- ✓ Event-driven collision detection between particles
+- ✓ Particle-particle elastic collisions with momentum/energy conservation
+- ✓ Particle-wall collisions
+- ✓ Time evolution with ballistic trajectories
+- ✓ Smooth animations with interpolated motion
+- ✓ Accurate particle size visualization
 
-2. **Time evolution**
-   - Update particle positions based on velocities
-   - Detect and handle collisions at each timestep
-   - Create animations of evolving system
+### Current Priorities
+1. **Add measurement tools**
+   - Track kinetic energy distribution over time
+   - Measure temperature gradients (spatial distribution)
+   - Record collision statistics and rates
+   - Monitor energy conservation
 
-3. **Add measurement tools**
-   - Track kinetic energy distribution
-   - Measure temperature gradients
-   - Record collision statistics
+2. **Optimize performance**
+   - Reduce event count for long simulations
+   - Consider spatial hashing for collision detection
+   - Optimize frame generation for animations
+
+3. **Enhanced visualization**
+   - Heat maps showing temperature distribution
+   - Energy distribution histograms
+   - Trajectory tracking for individual particles
 
 ### Future Extensions
-- Optional gravity field
 - Temperature-controlled walls (thermal reservoirs)
-- Measurement of spatial temperature profiles
-- Statistical mechanics observables (pressure, temperature, entropy)
-- Compare with theoretical predictions
+- Variable particle masses and radii
+- Statistical mechanics observables (pressure, entropy)
+- 3D extension of the simulation
+- Compare with theoretical predictions (Maxwell-Boltzmann distribution, etc.)
 
 ## Project Philosophy
 
