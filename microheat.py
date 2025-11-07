@@ -277,7 +277,6 @@ def main():
         if isinstance(j,int) and particles[j].collision_count != count_j:
             continue
             
-    
         #Advance all particles to event time
         advance_particles(particles, event_time - current_time)
         current_time = event_time
