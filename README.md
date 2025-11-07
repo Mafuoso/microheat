@@ -19,6 +19,58 @@ While we have thermodynamic and continuum explanations (buoyancy, convection, et
 ### Why This Matters
 Standard explanations of heat rising rely on macroscopic properties like density and pressure gradients. But what's actually happening at the particle level? How do individual molecular collisions lead to the emergent behavior we call "heat rising"? This simulation aims to answer that question.
 
+## The Theory: Microscopic Heat Rising via Geometric Collision Bias
+
+This project tests a novel theory that heat rises through a **single-particle mechanism** driven by geometric collision bias, not requiring density gradients or ensemble averaging.
+
+### The Proposed Mechanism
+
+**Starting Condition:**
+- Ideal gas with gravity and elastic collisions between hard spheres
+- Can start uniform or with temperature variations
+
+**Step 1: Ballistic Stratification**
+- All particles undergo parabolic motion under gravity
+- Hot (high energy) particles: larger velocities → reach greater heights (h_max ~ v²/2g) → longer flight times
+- Cold (low energy) particles: smaller velocities → smaller oscillations → spend more time near bottom
+- **Result:** Time-averaged spatial distribution becomes stratified by energy, even though all particles are moving
+
+**Step 2: Geometric Collision Bias**
+- Hot particle spends more time aloft → when it descends, statistically more likely to encounter cold particle *beneath* it
+- Not because cold particles don't move up, but because the time-averaged probability distributions are stratified
+- Collision geometry is biased: hot particle colliding downward into cold particle below
+
+**Step 3: Upward Redirection**
+- Downward-moving hot particle hits slower cold particle below
+- Elastic collision can redirect hot particle upward
+- Hot particle reaches higher than pure ballistics would allow from its initial energy
+
+**Step 4: Self-Reinforcing Cycle**
+- Enhanced elevation → more time aloft → more biased collision geometry → maintains/increases elevation
+- This creates a positive feedback loop
+
+### Key Claims
+
+1. **Single-Particle Phenomenon:** Even one hot particle in a cold bath should stay preferentially elevated because the geometric bias from ballistic stratification is sufficient to overcome thermalization.
+
+2. **No Macroscopic Prerequisites:** The mechanism doesn't require:
+   - Density differences
+   - Pressure gradients
+   - Large ensembles
+   - Statistical mechanics ensemble averaging
+
+3. **Microscopic Foundation:** With many hot particles, each independently experiences this effect, so we observe systematic upward transport of thermal energy. The mechanism is fundamentally microscopic.
+
+### What Makes It Work
+
+The collision rate and geometry are not uniform in space - they're correlated with the energy-height stratification that gravity + ballistics naturally creates. The bias is probabilistic but persistent.
+
+### Testing the Theory
+
+The simulation includes two key experiments:
+- **Demo 1 (Equipartition):** All particles at same temperature - baseline behavior
+- **Demo 2 (One Hot Particle):** Single high-energy particle among cold particles - tests single-particle elevation hypothesis
+
 ## Current Implementation
 
 ### Physics Model
