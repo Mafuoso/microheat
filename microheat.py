@@ -89,6 +89,7 @@ class Particle():
         elif wall == 'top' or wall == 'bottom':
             self.vy = -self.vy
         self.collision_count += 1
+        #TODO: Glacning collisions with side wall should send particle back up if it was falling down. Need to handle this differently
     
     def collide_with_particle(self, particle):
         """Update velocities after collision with another particle."""
@@ -539,6 +540,17 @@ def run_demo():
     animate_simulation(particles1, box1, max_time=50.0, fps=10,
                       save_file="demo1_equipartition_animation.gif",
                       title="Ideal Gas: Equipartition at T=10")
+
+    #Demo 2: One hot particle - SPARSE configuration
+    print("Demo 2: One Hot Particle - Hot particle at T=100, others at T=10")
+    print("        (25 particles in 3000x3000 box)\n")
+    particles2, box2 = initialize(N=25, width=3000.0, height=3000.0)
+    init_hot_particle(particles2, hot_index=5, hot_temperature=500,
+                      cold_temperature=10, k_B=1.0)
+    animate_simulation(particles2, box2, max_time=100.0, fps=10,
+                      save_file="demo2_one_hot_particle_animation.gif",
+                      title="Ideal Gas: One Hot Particle at T=100")
+    
 
     print()
 
