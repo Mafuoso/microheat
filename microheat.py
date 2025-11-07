@@ -226,8 +226,16 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
     # Calculate speeds for color coding
     speeds = [np.sqrt(p.vx**2 + p.vy**2) for p in particles]
 
+    # Calculate marker size based on actual particle radius
+    # Convert radius from data units to points for accurate representation
+    fig_width_inches = 10  # from figsize=(10, 10)
+    data_width = box.width * 1.2  # plot shows box + 10% padding each side
+    points_per_data_unit = (fig_width_inches * 72) / data_width  # 72 points per inch
+    particle_radius = particles[0].r if particles else 1.0
+    marker_size = (2 * particle_radius * points_per_data_unit) ** 2
+
     # Plot particles with color based on speed
-    scatter = ax.scatter(x_positions, y_positions, c=speeds, s=200, alpha=0.7,
+    scatter = ax.scatter(x_positions, y_positions, c=speeds, s=marker_size, alpha=0.7,
                          cmap='hot', edgecolors='black', linewidth=1.5)
 
     # Plot velocity vectors
@@ -338,6 +346,13 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
     pbar.close()
     print(f"Simulation complete. Captured {len(event_snapshots)} collision events.")
 
+    # Handle case of no events
+    if len(event_snapshots) == 0:
+        print("Warning: No collision events occurred during the simulation.")
+        print("Try using: smaller box, more particles, higher temperature, or longer max_time.")
+        plt.close('all')
+        return None
+
     # Create expanded frame list - each event shown for specified duration
     frames_per_event = int(event_display_time * fps)
     frames_data = []
@@ -358,8 +373,16 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
         all_speeds.extend(speeds)
     vmin, vmax = 0, max(all_speeds) if all_speeds else 1
 
+    # Calculate marker size based on actual particle radius
+    # Convert radius from data units to points for accurate representation
+    fig_width_inches = 10  # from figsize=(10, 10)
+    data_width = box.width * 1.2  # plot shows box + 10% padding each side
+    points_per_data_unit = (fig_width_inches * 72) / data_width  # 72 points per inch
+    particle_radius = particles[0].r if particles else 1.0
+    marker_size = (2 * particle_radius * points_per_data_unit) ** 2
+
     # Initialize plot elements
-    scatter = ax.scatter([], [], s=200, alpha=0.7, cmap='hot',
+    scatter = ax.scatter([], [], s=marker_size, alpha=0.7, cmap='hot',
                         edgecolors='black', linewidth=1.5, vmin=vmin, vmax=vmax, c=[])
     quiver_artists = []  # Store quiver objects
     time_text = ax.text(0.02, 0.98, '', transform=ax.transAxes,
