@@ -141,7 +141,7 @@ def initialize(N: int, width: float, height: float):
         particles.append(Particle(X[i], Y[i]))
     return particles, box
 
-def intialize_events(particles:list[Particle],box:Box):
+def initialize_events(particles:list[Particle],box:Box):
     """Initialize the event priority queue with wall and particle collision events."""
     events = []
     
@@ -194,7 +194,23 @@ def advance_particles(particles: list[Particle], dt: float):
         p.vy = new_vy
         
         
-        
+def predict_new_collisions(particles,i,box, events,current_time):
+    """Predict new collisions after an event has occurred."""
+    p = particles[i]
+    # Wall collision
+    time_to_wall, wall = p.time_to_wall(box.width, box.height)
+    count_i = p.collision_count
+    if time_to_wall < float('inf'):
+        heapq.heappush(events, (time_to_wall + current_time, i, wall, count_i, 0))  # (time, particle index, wall, count_i, count_j=0 for wall collisions)
+
+    # Particle collisions
+    for j, q in enumerate(particles):
+        if j != i:
+            time_to_particle = p.time_to_particle(q)
+            count_j = q.collision_count
+            if time_to_particle < float('inf'):
+                heapq.heappush(events, (time_to_particle + current_time, i, j, count_i, count_j))  # (time, particle i index, particle j index, count_i, count_j)
+                
 def visualize_particles(particles: list[Particle], box: Box, title: str = "Particle Visualization", save_file: str = None):
     """Visualize particles and their velocity vectors."""
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -249,10 +265,10 @@ def main():
     width = 100
     height = 100
     particles, box = initialize(N, width, height)
-    X, Y = box.make_grid(N)
-    events = intialize_events(particles, box)
+    init_velocities_equiparition(particles, temperature=300)
+    events = initialize_events(particles, box)
     current_time = 0
-    while current_time < max_time:
+    while current_time < max_time and len(events) > 0:
         (event_time, i, j, count_i, count_j) = heapq.heappop(events) #Get the next event, if this is a wall collision j = wall name str else j = particle index
         
         #validitiy check on the event
@@ -269,6 +285,8 @@ def main():
         #Process all collisions
         if isinstance(j, int):  # Particle-Particle collision
             particles[i].collide_with_particle(particles[j])
+            predict_new_collisions(particles, i, box, events, current_time)
+            predict_new_collisions(particles, j, box, events, current_time)
         else:  # Particle-Wall collision (j is a string)
             particles[i].collide_with_wall(j)
-            
+            predict_new_collisions(particles, i, box, events, current_time)
