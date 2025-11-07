@@ -268,17 +268,50 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
     return fig, ax
 
 
+def create_smooth_frames(snapshot1, snapshot2, num_frames):
+    """Interpolate particle positions between two collision events using ballistic motion."""
+    frames = []
+    dt_total = snapshot2['time'] - snapshot1['time']
+    g = 9.8  # gravitational acceleration
+
+    for frame_num in range(num_frames):
+        t_frac = frame_num / num_frames
+        dt = t_frac * dt_total
+
+        # Predict each particle's position using ballistic trajectory
+        frame = {
+            'x': [], 'y': [], 'vx': [], 'vy': [],
+            'time': snapshot1['time'] + dt,
+            'event_type': 'In flight',
+            'event_num': snapshot1['event_num']
+        }
+
+        for i in range(len(snapshot1['x'])):
+            # Ballistic trajectory from snapshot1
+            x = snapshot1['x'][i] + snapshot1['vx'][i] * dt
+            y = snapshot1['y'][i] + snapshot1['vy'][i] * dt - 0.5 * g * dt**2
+            vx = snapshot1['vx'][i]
+            vy = snapshot1['vy'][i] - g * dt
+
+            frame['x'].append(x)
+            frame['y'].append(y)
+            frame['vx'].append(vx)
+            frame['vy'].append(vy)
+
+        frames.append(frame)
+
+    return frames
+
+
 def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10.0,
-                       event_display_time: float = 2.0, fps: int = 30,
-                       save_file: str = None, title: str = "Ideal Gas Simulation"):
+                       fps: int = 30, save_file: str = None, title: str = "Ideal Gas Simulation"):
     """
-    Animate the particle simulation showing each collision event.
+    Animate the particle simulation with smooth interpolation between collision events.
 
     Args:
         particles: List of Particle objects
         box: Box object containing the simulation boundaries
         max_time: Total simulation time
-        event_display_time: How long to display each event (seconds)
         fps: Frames per second for the animation
         save_file: If provided, save animation to this file (e.g., 'sim.gif' or 'sim.mp4')
         title: Title for the animation
@@ -293,11 +326,23 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
     # Count total events for progress bar
     total_events = len(events)
 
+    # Capture initial state
+    initial_snapshot = {
+        'x': [p.x for p in particles],
+        'y': [p.y for p in particles],
+        'vx': [p.vx for p in particles],
+        'vy': [p.vy for p in particles],
+        'time': 0.0,
+        'event_type': 'Initial state',
+        'event_num': 0
+    }
+    event_snapshots.append(initial_snapshot)
+
     # Run simulation and capture each event
     print(f"Running simulation for {max_time:.2f} time units...")
     pbar = tqdm(total=total_events, desc="Processing events", unit="event")
 
-    event_count = 0
+    event_count = 1
     while current_time < max_time and len(events) > 0:
         # Get next event
         (event_time, i, j, count_i, count_j) = heapq.heappop(events)
@@ -345,21 +390,31 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
     print(f"Simulation complete. Captured {len(event_snapshots)} collision events.")
 
     # Handle case of no events
-    if len(event_snapshots) == 0:
+    if len(event_snapshots) <= 1:
         print("Warning: No collision events occurred during the simulation.")
         print("Try using: smaller box, more particles, higher temperature, or longer max_time.")
         plt.close('all')
         return None
 
-    # Create expanded frame list - each event shown for specified duration
-    frames_per_event = int(event_display_time * fps)
+    # Create smooth interpolated frames between events
+    print("Creating smooth interpolated frames...")
     frames_data = []
-    for snapshot in event_snapshots:
-        # Repeat this snapshot for the display duration
-        for _ in range(frames_per_event):
-            frames_data.append(snapshot)
+    for i in range(len(event_snapshots) - 1):
+        snapshot1 = event_snapshots[i]
+        snapshot2 = event_snapshots[i + 1]
 
-    print(f"Creating animation with {len(frames_data)} total frames ({len(event_snapshots)} events × {frames_per_event} frames/event)...")
+        # Calculate number of frames based on time difference
+        dt = snapshot2['time'] - snapshot1['time']
+        num_frames = max(1, int(dt * fps))
+
+        # Interpolate between snapshots
+        interpolated_frames = create_smooth_frames(snapshot1, snapshot2, num_frames)
+        frames_data.extend(interpolated_frames)
+
+    # Add the final snapshot
+    frames_data.append(event_snapshots[-1])
+
+    print(f"Created animation with {len(frames_data)} total frames ({len(event_snapshots)} collision events)")
 
     # Create animation
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -466,20 +521,20 @@ def run_demo():
     """
     Run demonstration animations of the ideal gas simulation.
 
-    Shows event-driven animation where each collision is displayed for 2 seconds.
+    Shows smooth animation with interpolated motion between collision events.
     Uses sparse particle configurations appropriate for ideal gas behavior.
     """
-    print("=== Microheat Event-Driven Animation Demo ===\n")
-    print("Note: Each collision event will be shown for 2 seconds")
+    print("=== Microheat Smooth Animation Demo ===\n")
+    print("Note: Animation uses smooth interpolation between collision events")
     print("      Using sparse configurations appropriate for ideal gas\n")
 
     # Demo 1: All particles at same temperature - SPARSE configuration
     print("Demo 1: Equipartition - All particles at temperature T=10")
-    print("        (9 particles in 300x300 box)\n")
+    print("        (25 particles in 3000x3000 box)\n")
     particles1, box1 = initialize(N=25, width=3000.0, height=3000.0)
     init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
 
-    animate_simulation(particles1, box1, max_time=20.0, event_display_time=1.0, fps=10,
+    animate_simulation(particles1, box1, max_time=20.0, fps=10,
                       save_file="demo1_equipartition_animation.gif",
                       title="Ideal Gas: Equipartition at T=10")
 
