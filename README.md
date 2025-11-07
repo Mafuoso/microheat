@@ -63,12 +63,17 @@ pip install numpy matplotlib tqdm
 - Matplotlib (visualization and animation)
 - tqdm (progress bars)
 
+## Project Structure
+
+- **`microheat.py`** - Core physics engine (particles, collisions, event queue)
+- **`animate.py`** - Visualization and animation functions
+
 ## Usage
 
 ### Quick Start - Run the Demo
 
 ```bash
-python3 microheat.py
+python3 animate.py
 ```
 
 This generates animated simulations showing particle dynamics with collision physics.
@@ -79,6 +84,7 @@ This generates animated simulations showing particle dynamics with collision phy
 
 ```python
 import microheat
+from animate import visualize_particles
 
 # Initialize particles in a grid (uses spacing based on particle radius)
 N = 16  # number of particles
@@ -93,26 +99,27 @@ microheat.init_hot_particle(particles, hot_index=0,
                            cold_temperature=5, k_B=1.0)
 
 # Create static visualization
-microheat.visualize_particles(particles, box,
-                             title="My Simulation",
-                             save_file="output.png")
+visualize_particles(particles, box,
+                   title="My Simulation",
+                   save_file="output.png")
 ```
 
 #### Animated Simulation
 
 ```python
 import microheat
+from animate import animate_simulation
 
 # Initialize sparse configuration (ideal gas approximation)
 particles, box = microheat.initialize(N=25, width=3000.0, height=3000.0)
 microheat.init_velocities_equiparition(particles, temperature=10, k_B=1.0)
 
 # Create smooth animation with interpolated motion
-microheat.animate_simulation(particles, box,
-                            max_time=20.0,  # simulation duration
-                            fps=30,          # frames per second
-                            save_file="simulation.gif",
-                            title="Ideal Gas Simulation")
+animate_simulation(particles, box,
+                  max_time=20.0,  # simulation duration
+                  fps=30,          # frames per second
+                  save_file="simulation.gif",
+                  title="Ideal Gas Simulation")
 ```
 
 **Animation Features:**
