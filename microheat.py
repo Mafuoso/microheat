@@ -43,13 +43,13 @@ class Particle():
         #Top Wall
         top_equation = [-0.5*self.g, self.vy, self.y- top_wall + self.r,] # coefficients of the quadratic equation   
         top_roots = np.roots(top_equation)
-        top_roots = top_roots[np.isreal(top_roots) & (top_roots >= 0)].real # keep only real and positive roots
+        top_roots = top_roots[np.isreal(top_roots) & (top_roots >= 1e-10)].real # keep only real and positive roots
         time_to_top = min(top_roots) if len(top_roots) > 0 else float('inf')
         
         #Bottom Wall 
         bottom_equation = [-0.5*self.g, self.vy, self.y - self.r,]  # coefficients of the quadratic equation
         bottom_roots = np.roots(bottom_equation)
-        bottom_roots = bottom_roots[np.isreal(bottom_roots) & (bottom_roots >= 0)].real # keep only real and positive roots
+        bottom_roots = bottom_roots[np.isreal(bottom_roots) & (bottom_roots >= 1e-10)].real # keep only real and positive roots
         time_to_bottom = min(bottom_roots) if len(bottom_roots) > 0 else float('inf')
         
         #Return time to collision and which wall we are colliding with
@@ -114,22 +114,24 @@ class Box():
         self.height: float = height
         self.gravity_strength: float = 9.8 
         
-    def make_grid(self, N: int, particle_radius: float = 1.0):
+    def make_grid(self, N: int):
         """Create a grid of N particles evenly spaced in the box."""
+        # Calculate grid dimensions - make it roughly square
         n_cols = int(math.ceil(math.sqrt(N)))
         n_rows = int(math.ceil(N / n_cols))
 
-        # Use full box, with margin for particle radius
-        margin = 2 * particle_radius
-        x_array = np.linspace(margin, self.width - margin, n_cols)
-        y_array = np.linspace(margin, self.height - margin, n_rows)
+        # Create evenly spaced arrays
+        x_array = np.linspace(0, self.width, n_cols + 2)[1:-1]  # Exclude boundaries
+        y_array = np.linspace(0, self.height, n_rows + 2)[1:-1]  # Exclude boundaries
 
+        # Create meshgrid
         X, Y = np.meshgrid(x_array, y_array)
 
+        # Flatten and return only N particles (in case n_rows * n_cols > N)
         X_flat = X.flatten()[:N]
         Y_flat = Y.flatten()[:N]
 
-        return X_flat, Y_flat
+        return X_flat, Y_flat 
     
     
 def initialize(N: int, width: float, height: float):
@@ -534,7 +536,7 @@ def run_demo():
     particles1, box1 = initialize(N=25, width=3000.0, height=3000.0)
     init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
 
-    animate_simulation(particles1, box1, max_time=20.0, fps=10,
+    animate_simulation(particles1, box1, max_time=50.0, fps=10,
                       save_file="demo1_equipartition_animation.gif",
                       title="Ideal Gas: Equipartition at T=10")
 
