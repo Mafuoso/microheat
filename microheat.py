@@ -28,8 +28,7 @@ class Particle():
     
     def time_to_wall(self,left_wall:float, right_wall:float, bottom_wall:float, top_wall:float):
         """Calculate time to collide with the walls of the box. Return the time to the first wall"""
-
-        #check velocity direction
+        #Check velocity direction
         if self.vx > 0:
             time_to_right = ((right_wall - self.r) - self.x) / self.vx
             time_to_left = float('inf')
@@ -39,15 +38,14 @@ class Particle():
         else:
             time_to_right = float('inf')
             time_to_left = float('inf')
-            
-        
-        #top wall
+                    
+        #Top Wall
         top_equation = [-0.5*self.g, self.vy, self.y- top_wall + self.r,] # coefficients of the quadratic equation   
         top_roots = np.roots(top_equation)
         top_roots = top_roots[np.isreal(top_roots) & (top_roots >= 0)].real # keep only real and positive roots
         time_to_top = min(top_roots) if len(top_roots) > 0 else float('inf')
         
-        #bottom wall 
+        #Bottom Wall 
         bottom_equation = [-0.5*self.g, self.vy, self.y - self.r,]  # coefficients of the quadratic equation
         bottom_roots = np.roots(bottom_equation)
         bottom_roots = bottom_roots[np.isreal(bottom_roots) & (bottom_roots >= 0)].real # keep only real and positive roots
@@ -67,9 +65,25 @@ class Particle():
             
         return min_time, wall
     
+    def time_to_particle(self, particle):
+        deltax = particle.x - self.x
+        deltay = particle.y - self.y
+        delta_vx = particle.vx - self.vx
+        delta_vy = particle.vy - self.vy
+        
+        coeff_array = [delta_vx**2 + delta_vy**2,
+                       2*(deltax*delta_vx + deltay*delta_vy),
+                       deltax**2 + deltay**2 - (self.r + particle.r)**2]
+        times = np.roots(coeff_array)
+        times = times[np.isreal(times) & (times >= 0)].real # keep only real and positive roots
+        if len(times) == 0:
+            return float('inf')
+        else:
+            return min(times)
+        
                 
 class Box():
-
+    
     def __init__(self, width, height):
         self.width: float = width
         self.height: float = height
@@ -93,6 +107,8 @@ class Box():
         Y_flat = Y.flatten()[:N]
 
         return X_flat, Y_flat 
+    
+    def 
     
 def initialize(N: int, width: float, height: float):
     """Initialize N particles in a box of given width and height."""
@@ -171,51 +187,6 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
         plt.show()
 
     return fig, ax
-
-
-def run_demo():
-    """Run demonstration of particle visualization with different velocity configurations.
-
-    Uses sparse particle configurations appropriate for ideal gas behavior.
-    """
-    print("=== Microheat Visualization Demo ===\n")
-    print("Note: Using sparse configurations appropriate for ideal gas")
-    print("(particles should be far apart compared to their size)\n")
-
-    # Demo 1: All particles at same temperature - SPARSE configuration
-    print("Demo 1: All particles at temperature T=10 (9 particles in 300x300 box)")
-    particles1, box1 = initialize(N=9, width=300.0, height=300.0)
-    init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
-    visualize_particles(particles1, box1,
-                       title="Ideal Gas: Equipartition at T=10 (Sparse Configuration)",
-                       save_file="demo1_equipartition.png")
-    plt.close()
-
-    # Calculate and print spacing info
-    spacing1 = 300.0 / 4  # for 3x3 grid
-    print(f"   → Particle spacing: ~{spacing1:.1f} units (particle radius = 1.0)")
-    print(f"   → Mean free path / particle size ratio: ~{spacing1/2:.1f}\n")
-
-    # Demo 2: One hot particle among cold ones - SPARSE configuration
-    print("Demo 2: One hot particle (T=50) among cold particles (T=5)")
-    print("        (16 particles in 300x300 box)")
-    particles2, box2 = initialize(N=16, width=300.0, height=300.0)
-    init_hot_particle(particles2, hot_index=0, hot_temperature=50, cold_temperature=5, k_B=1.0)
-    visualize_particles(particles2, box2,
-                       title="Ideal Gas: One Hot Particle at T=50, Others at T=5",
-                       save_file="demo2_hot_particle.png")
-    plt.close()
-
-    spacing2 = 300.0 / 5  # for 4x4 grid
-    print(f"   → Particle spacing: ~{spacing2:.1f} units (particle radius = 1.0)")
-    print(f"   → Mean free path / particle size ratio: ~{spacing2/2:.1f}\n")
-
-    print("Demo complete! Check the saved PNG files.")
-    print("Particles are now appropriately sparse for ideal gas modeling.")
-
-
-if __name__ == "__main__":
-    run_demo()
 
 
     
