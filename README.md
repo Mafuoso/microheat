@@ -19,26 +19,26 @@ While we have thermodynamic and continuum explanations (buoyancy, convection, et
 ### Why This Matters
 Standard explanations of heat rising rely on macroscopic properties like density and pressure gradients. But what's actually happening at the particle level? How do individual molecular collisions lead to the emergent behavior we call "heat rising"? This simulation aims to answer that question.
 
-## The Theory: Microscopic Heat Rising via Geometric Collision Bias
+## The Theory
 
-This project tests a novel theory that heat rises through a **single-particle mechanism** driven by geometric collision bias, not requiring density gradients or ensemble averaging.
+This project tests my theory that heat rises through a **microscopic mechanism** driven by a collision bias, not relying on density or buoyoancy to explain the process. 
 
 ### The Proposed Mechanism
 
 **Starting Condition:**
 - Ideal gas with gravity and elastic collisions between hard spheres
 - Can start uniform or with temperature variations
+- Can start at thermal equillibrium 
 
 **Step 1: Ballistic Stratification**
 - All particles undergo parabolic motion under gravity
-- Hot (high energy) particles: larger velocities → reach greater heights (h_max ~ v²/2g) → longer flight times
-- Cold (low energy) particles: smaller velocities → smaller oscillations → spend more time near bottom
-- **Result:** Time-averaged spatial distribution becomes stratified by energy, even though all particles are moving
+- Hot (high energy) particles: larger velocities → reach greater heights (h_max ~ v²/2g) → longer flight times **ON AVERAGE**
+- Cold (low energy) particles: smaller velocities → gravity pulls them down faster/ less Vy to oppose g **ON AVERAGE**
 
 **Step 2: Geometric Collision Bias**
 - Hot particle spends more time aloft → when it descends, statistically more likely to encounter cold particle *beneath* it
 - Not because cold particles don't move up, but because the time-averaged probability distributions are stratified
-- Collision geometry is biased: hot particle colliding downward into cold particle below
+- Collision geometry is biased: hot particle colliding downward into cold particle below is a more likely event 
 
 **Step 3: Upward Redirection**
 - Downward-moving hot particle hits slower cold particle below
@@ -48,6 +48,7 @@ This project tests a novel theory that heat rises through a **single-particle me
 **Step 4: Self-Reinforcing Cycle**
 - Enhanced elevation → more time aloft → more biased collision geometry → maintains/increases elevation
 - This creates a positive feedback loop
+- Doesn't mean that hot air will be at the top of the box, but it does mean it is more likely to find the hot particle near the top or above the cold particles **ON AVERAGE**
 
 ### Key Claims
 
@@ -67,9 +68,7 @@ The collision rate and geometry are not uniform in space - they're correlated wi
 
 ### Testing the Theory
 
-The simulation includes two key experiments:
-- **Demo 1 (Equipartition):** All particles at same temperature - baseline behavior
-- **Demo 2 (One Hot Particle):** Single high-energy particle among cold particles - tests single-particle elevation hypothesis
+- Work In Progress
 
 ## Current Implementation
 
