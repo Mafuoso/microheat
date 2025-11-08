@@ -18,8 +18,17 @@ from microheat import (
 )
 
 
-def visualize_particles(particles: list[Particle], box: Box, title: str = "Particle Visualization", save_file: str = None):
-    """Visualize particles and their velocity vectors."""
+def visualize_particles(particles: list[Particle], box: Box, title: str = "Particle Visualization",
+                       save_file: str = None, hot_particle_index: int = None):
+    """Visualize particles and their velocity vectors.
+
+    Args:
+        particles: List of Particle objects
+        box: Box object
+        title: Plot title
+        save_file: Optional filename to save the plot
+        hot_particle_index: Optional index of the hot particle (its vector will be red)
+    """
     fig, ax = plt.subplots(figsize=(10, 10))
 
     # Extract particle positions and velocities
@@ -43,9 +52,23 @@ def visualize_particles(particles: list[Particle], box: Box, title: str = "Parti
     scatter = ax.scatter(x_positions, y_positions, c=speeds, s=marker_size, alpha=0.7,
                          cmap='hot', edgecolors='black', linewidth=1.5)
 
-    # Plot velocity vectors
-    ax.quiver(x_positions, y_positions, vx, vy, angles='xy', scale_units='xy',
-              scale=0.5, color='blue', alpha=0.6, width=0.003)
+    # Plot velocity vectors - regular particles in blue
+    if hot_particle_index is not None:
+        # Plot all particles except hot particle in blue
+        for i in range(len(particles)):
+            if i != hot_particle_index:
+                ax.quiver(x_positions[i], y_positions[i], vx[i], vy[i],
+                         angles='xy', scale_units='xy', scale=0.5,
+                         color='blue', alpha=0.6, width=0.003)
+        # Plot hot particle vector in red
+        ax.quiver(x_positions[hot_particle_index], y_positions[hot_particle_index],
+                 vx[hot_particle_index], vy[hot_particle_index],
+                 angles='xy', scale_units='xy', scale=0.5,
+                 color='red', alpha=0.8, width=0.005)
+    else:
+        # All vectors in blue (no hot particle)
+        ax.quiver(x_positions, y_positions, vx, vy, angles='xy', scale_units='xy',
+                  scale=0.5, color='blue', alpha=0.6, width=0.003)
 
     # Draw box boundaries
     ax.plot([0, box.width, box.width, 0, 0],
@@ -111,7 +134,8 @@ def create_smooth_frames(snapshot1, snapshot2, num_frames):
 
 
 def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10.0,
-                       fps: int = 30, save_file: str = None, title: str = "Ideal Gas Simulation"):
+                       fps: int = 30, save_file: str = None, title: str = "Ideal Gas Simulation",
+                       hot_particle_index: int = None):
     """
     Animate the particle simulation with smooth interpolation between collision events.
 
@@ -122,6 +146,7 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
         fps: Frames per second for the animation
         save_file: If provided, save animation to this file (e.g., 'sim.gif' or 'sim.mp4')
         title: Title for the animation
+        hot_particle_index: Optional index of the hot particle (its vector will be red)
     """
     # Initialize events
     events = initialize_events(particles, box)
@@ -295,10 +320,29 @@ def animate_simulation(particles: list[Particle], box: Box, max_time: float = 10
 
         # Add new velocity vectors
         if len(frame['x']) > 0:
-            quiver_new = ax.quiver(frame['x'], frame['y'], frame['vx'], frame['vy'],
-                                  angles='xy', scale_units='xy', scale=0.5,
-                                  color='blue', alpha=0.6, width=0.003)
-            quiver_artists.append(quiver_new)
+            if hot_particle_index is not None:
+                # Draw regular particles in blue
+                for i in range(len(frame['x'])):
+                    if i != hot_particle_index:
+                        quiver_new = ax.quiver(frame['x'][i], frame['y'][i],
+                                              frame['vx'][i], frame['vy'][i],
+                                              angles='xy', scale_units='xy', scale=0.5,
+                                              color='blue', alpha=0.6, width=0.003)
+                        quiver_artists.append(quiver_new)
+                # Draw hot particle in red
+                quiver_hot = ax.quiver(frame['x'][hot_particle_index],
+                                      frame['y'][hot_particle_index],
+                                      frame['vx'][hot_particle_index],
+                                      frame['vy'][hot_particle_index],
+                                      angles='xy', scale_units='xy', scale=0.5,
+                                      color='red', alpha=0.8, width=0.005)
+                quiver_artists.append(quiver_hot)
+            else:
+                # All particles in blue (no hot particle)
+                quiver_new = ax.quiver(frame['x'], frame['y'], frame['vx'], frame['vy'],
+                                      angles='xy', scale_units='xy', scale=0.5,
+                                      color='blue', alpha=0.6, width=0.003)
+                quiver_artists.append(quiver_new)
 
         # Update text displays
         time_text.set_text(f'Time: {frame["time"]:.2f}')

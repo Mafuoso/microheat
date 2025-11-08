@@ -239,11 +239,13 @@ def run_demo():
     print("Demo 2: One Hot Particle - Hot particle at T=100, others at T=10")
     print("        (25 particles in 3000x3000 box)\n")
     particles2, box2 = initialize(N=50, width=3000.0, height=3000.0)
-    init_hot_particle(particles2, hot_index=5, hot_temperature=500,
+    hot_index = 5
+    init_hot_particle(particles2, hot_index=hot_index, hot_temperature=500,
                       cold_temperature=10, k_B=1.0)
     animate_simulation(particles2, box2, max_time=100.0, fps=30,
                       save_file="demo2_one_hot_particle_animation.gif",
-                      title="Ideal Gas: One Hot Particle at T=100")
+                      title="Ideal Gas: One Hot Particle at T=100",
+                      hot_particle_index=hot_index)
     
 
     print()
