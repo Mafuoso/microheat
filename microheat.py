@@ -255,24 +255,28 @@ def simulate(hot_index,temp):
             predict_new_collisions(particles, i, box, events, current_time)
 
     pbar.close()
-    return get_mean_position(particles[hot_index])
+    return get_mean_position(particles[hot_index]), get_mean_position(particles[(hot_index+1)%N]) # return mean height of hot particle and a cold particle for comparison
 
 
 def temp_height_correlate():
     """ Run multiple trials and calculate correlation between temperature and mean height. Fixed hot index"""
     temp_list = [50,100, 200, 300, 400, 500
     ]
-    hot_index = np.random.randint(0,100)
+    hot_index = 2
  
     mean_heights = p_map(simulate, [hot_index]*len(temp_list), temp_list)
+    mean_heights_hot = [h[0] for h in mean_heights]
+    mean_heights_cold = [h[1] for h in mean_heights]
 
-    correlation = np.corrcoef(temp_list, mean_heights)[0, 1]
-    return correlation, temp_list, mean_heights
+    correlation_hot = np.corrcoef(temp_list, mean_heights)[0, 1]
+    correlation_cold = np.corrcoef(temp_list, mean_heights_cold)[0, 1]
+    return correlation_hot,correlation_cold, temp_list, mean_heights_hot, mean_heights_cold
 
 if __name__ == "__main__":
-    correlation, temp_list, mean_heights = temp_height_correlate()
-    print("Temperature-Mean Height Correlation:", correlation)
-    for t, h in zip(temp_list, mean_heights):
-        print(f"Temperature: {t}, Mean Height: {h}")
+    correlation_hot, correlation_cold, temp_list, mean_heights_hot, mean_heights_cold = temp_height_correlate()
+    print("Correlation between temperature and mean height of hot particle:", correlation_hot)
+    print("Correlation between temperature and mean height of cold particle:", correlation_cold)
+    for t, h_hot, h_cold in zip(temp_list, mean_heights_hot, mean_heights_cold):
+        print(f"Temperature: {t}, Mean Height Hot Particle: {h_hot}, Mean Height Cold Particle: {h_cold}")
 
 
