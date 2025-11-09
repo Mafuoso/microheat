@@ -3,6 +3,7 @@ import math
 import heapq
 from tqdm import tqdm
 from p_tqdm import p_map
+import matplotlib.pyplot as plt
 
 
 np.random.seed(42)  # For reproducibility
@@ -224,7 +225,7 @@ def get_mean_position(particle:Particle):
 
 def simulate(hot_index,temp):
     #Experiment Details
-    max_time = 1000
+    max_time = 100
     N = 100
     width = 1000
     height = 1000
@@ -232,7 +233,7 @@ def simulate(hot_index,temp):
     init_hot_particle(particles, hot_index, hot_temperature=temp, cold_temperature=50)
     events = initialize_events(particles, box)
     current_time = 0
-    next_sample = 10 #sample every 10 time units
+    next_sample = 0.1 #sample every 0.1 time units
 
     pbar = tqdm(total=max_time)
     while current_time < max_time:
@@ -247,12 +248,12 @@ def simulate(hot_index,temp):
         while next_sample <= event_time and next_sample <= max_time:
             dt = next_sample - current_time
             if dt > 0:
-                advance_particles(particles, dt, box.g)
+                advance_particles(particles, dt)
                 current_time = next_sample
             particles[hot_index].heights.append(particles[hot_index].y)
             particles[(hot_index+1)%N].heights.append(particles[(hot_index+1)%N].y) # record height of a cold particle for comparison
 
-            next_sample += 10 #sample interval is 10
+            next_sample += 10 #sample interval is 0.1
 
         #Advance all particles to event time
         advance_particles(particles, event_time - current_time)
@@ -271,24 +272,60 @@ def simulate(hot_index,temp):
 
 
 def temp_height_correlate():
-    """ Run multiple trials and calculate correlation between temperature and mean height. Fixed hot index"""
-    temp_list = [50,100, 200, 300, 400, 500
-    ]
-    hot_index = 2
- 
-    mean_heights = p_map(simulate, [hot_index]*len(temp_list), temp_list)
-    mean_heights_hot = [h[0] for h in mean_heights]
-    mean_heights_cold = [h[1] for h in mean_heights]
-
+    """Run multiple trials and calculate correlation between temperature and mean height."""
+    temp_list = [50, 100, 200, 300, 400, 500]
+    hot_index = 50
+    ntrials = 10
+    
+    mean_heights_hot = []
+    mean_heights_cold = []
+    mean_diffs = []
+    std_diffs = []
+    
+    for temp in temp_list:
+        # Run ntrials simulations for this temperature
+        mean_heights = p_map(lambda _: simulate(hot_index, temp), range(ntrials))
+        
+        # Extract hot and cold heights for THIS temperature
+        hot_heights = [mh[0] for mh in mean_heights]
+        cold_heights = [mh[1] for mh in mean_heights]
+        
+        # Store means for correlation
+        mean_heights_hot.append(np.mean(hot_heights))
+        mean_heights_cold.append(np.mean(cold_heights))
+        
+        # Compute differences WITHIN this temperature
+        diffs_this_temp = np.array(hot_heights) - np.array(cold_heights)
+        mean_diffs.append(np.mean(diffs_this_temp))
+        std_diffs.append(np.std(diffs_this_temp) / np.sqrt(ntrials))  # Standard error of mean
+    
     correlation_hot = np.corrcoef(temp_list, mean_heights_hot)[0, 1]
     correlation_cold = np.corrcoef(temp_list, mean_heights_cold)[0, 1]
-    return correlation_hot,correlation_cold, temp_list, mean_heights_hot, mean_heights_cold
+    
+    return correlation_hot, correlation_cold, temp_list, mean_heights_hot, mean_heights_cold, mean_diffs, std_diffs
 
+def plot_results(temp_list, mean_heights_hot, mean_heights_cold, mean_diffs, std_diffs):
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(temp_list, mean_diffs, yerr=std_diffs, fmt='o-', 
+                 label='Mean Height Difference (Hot - Cold)',
+                 capsize=5, capthick=2, markersize=8, linewidth=2)
+    plt.axhline(0, color='red', linestyle='--', alpha=0.5, label='No difference')
+    plt.xlabel('Temperature of Hot Particle', fontsize=12)
+    plt.ylabel('Mean Height Difference (Hot - Cold)', fontsize=12)
+    plt.title('Mean Height Difference vs Temperature of Hot Particle', fontsize=14)
+    plt.legend(fontsize=10)
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    
 if __name__ == "__main__":
-    correlation_hot, correlation_cold, temp_list, mean_heights_hot, mean_heights_cold = temp_height_correlate()
+    correlation_hot, correlation_cold, temp_list, mean_heights_hot, mean_heights_cold, mean_diffs, std_diffs = temp_height_correlate()
     print("Correlation between temperature and mean height of hot particle:", correlation_hot)
     print("Correlation between temperature and mean height of cold particle:", correlation_cold)
     for t, h_hot, h_cold in zip(temp_list, mean_heights_hot, mean_heights_cold):
         print(f"Temperature: {t}, Mean Height Hot Particle: {h_hot}, Mean Height Cold Particle: {h_cold}")
+    plot_results(temp_list, mean_heights_hot, mean_heights_cold,mean_diffs, std_diffs)
+    plt.savefig("mean_height_difference_vs_temperature.png")
 
 
