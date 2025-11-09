@@ -5,6 +5,7 @@ from tqdm import tqdm
 from p_tqdm import p_map
 
 
+np.random.seed(42)  # For reproducibility
 class Particle():
 
     def __init__(self, x, y):
@@ -190,7 +191,6 @@ def init_hot_particle(particles:list[Particle] ,hot_index:int, hot_temperature: 
 def advance_particles(particles: list[Particle], dt: float):
     """advance all particles by time dt."""
     for p in particles:
-        p.heights.append(p.y)  # Store height for mean position calculation
         new_x, new_y, new_vx, new_vy = p.predict_state(dt)
         p.x = new_x
         p.y = new_y
@@ -232,6 +232,7 @@ def simulate(hot_index,temp):
     init_hot_particle(particles, hot_index, hot_temperature=temp, cold_temperature=50)
     events = initialize_events(particles, box)
     current_time = 0
+    next_sample = 10 #sample every 10 time units
 
     pbar = tqdm(total=max_time)
     while current_time < max_time:
@@ -242,6 +243,17 @@ def simulate(hot_index,temp):
             continue
         if isinstance(j,int) and particles[j].collision_count != count_j:
             continue
+        
+        while next_sample <= event_time and next_sample <= max_time:
+            dt = next_sample - current_time
+            if dt > 0:
+                advance_particles(particles, dt, box.g)
+                current_time = next_sample
+            particles[hot_index].heights.append(particles[hot_index].y)
+            particles[(hot_index+1)%N].heights.append(particles[(hot_index+1)%N].y) # record height of a cold particle for comparison
+
+            next_sample += 10 #sample interval is 10
+
         #Advance all particles to event time
         advance_particles(particles, event_time - current_time)
         current_time = event_time
@@ -268,7 +280,7 @@ def temp_height_correlate():
     mean_heights_hot = [h[0] for h in mean_heights]
     mean_heights_cold = [h[1] for h in mean_heights]
 
-    correlation_hot = np.corrcoef(temp_list, mean_heights)[0, 1]
+    correlation_hot = np.corrcoef(temp_list, mean_heights_hot)[0, 1]
     correlation_cold = np.corrcoef(temp_list, mean_heights_cold)[0, 1]
     return correlation_hot,correlation_cold, temp_list, mean_heights_hot, mean_heights_cold
 
