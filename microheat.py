@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import heapq
+from tqdm import tqdm
 
 
 class Particle():
@@ -14,6 +15,7 @@ class Particle():
         self.m: float = 1.0  # particle mass
         self.collision_count: int = 0
         self.g = 9.8  # gravitational acceleration
+        self.heights = [] #to calculate mean position 
 
 
     def predict_state(self,dt:float):
@@ -187,6 +189,7 @@ def init_hot_particle(particles:list[Particle] ,hot_index:int, hot_temperature: 
 def advance_particles(particles: list[Particle], dt: float):
     """advance all particles by time dt."""
     for p in particles:
+        p.heights.append(p.y)  # Store height for mean position calculation
         new_x, new_y, new_vx, new_vy = p.predict_state(dt)
         p.x = new_x
         p.y = new_y
@@ -211,46 +214,68 @@ def predict_new_collisions(particles,i,box, events,current_time):
             if time_to_particle < float('inf'):
                 heapq.heappush(events, (time_to_particle + current_time, i, j, count_i, count_j))  # (time, particle i index, particle j index, count_i, count_j)
 
+def get_mean_position(particle:Particle):
+    """Calculate the mean height of a particle over its recorded heights."""
+    if len(particle.heights) == 0:
+        return particle.y
+    return sum(particle.heights) / len(particle.heights)
 
-def run_demo():
-    """
-    Run demonstration animations of the ideal gas simulation.
 
-    Shows smooth animation with interpolated motion between collision events.
-    Uses sparse particle configurations appropriate for ideal gas behavior.
-    """
-    from animate import animate_simulation
+def simulate(hot_index,temp):
+    #Experiment Details
+    max_time = 1000
+    N = 100
+    width = 1000
+    height = 1000
+    particles, box = initialize(N, width, height)
+    X, Y = box.make_grid(N)
+    events = initialize_events(particles, box)
+    init_hot_particle(particles, hot_index, hot_temperature=temp, cold_temperature=50)
+    current_time = 0
 
-    print("=== Microheat Smooth Animation Demo ===\n")
-    print("Note: Animation uses smooth interpolation between collision events")
-    print("      Using sparse configurations appropriate for ideal gas\n")
+    pbar = tqdm(total=max_time)
+    while current_time < max_time:
+        pbar.update(current_time - pbar.n)
+        (event_time, i, j, count_i, count_j) = heapq.heappop(events) #Get the next event, if this is a wall collision j = wall name str else j = particle index
+        #validitiy check on the event
+        if particles[i].collision_count != count_i:
+            continue
+        if isinstance(j,int) and particles[j].collision_count != count_j:
+            continue
+        #Advance all particles to event time
+        advance_particles(particles, event_time - current_time)
+        current_time = event_time
+        #Process all collisions
+        if isinstance(j, int):  # Particle-Particle collision
+            particles[i].collide_with_particle(particles[j])
+            predict_new_collisions(particles, i, box, events, current_time)
+            predict_new_collisions(particles, j, box, events, current_time)
+        else:  # Particle-Wall collision (j is a string)
+            particles[i].collide_with_wall(j)
+            predict_new_collisions(particles, i, box, events, current_time)
 
-    # Demo 1: All particles at same temperature - SPARSE configuration
-    print("Demo 1: Equipartition - All particles at temperature T=10")
-    print("        (25 particles in 3000x3000 box)\n")
-    particles1, box1 = initialize(N=50, width=3000.0, height=3000.0)
-    init_velocities_equiparition(particles1, temperature=10, k_B=1.0)
+    pbar.close()
+    return get_mean_position(particles[hot_index])
 
-    animate_simulation(particles1, box1, max_time=50.0, fps=10,
-                      save_file="demo1_equipartition_animation.gif",
-                      title="Ideal Gas: Equipartition at T=10")
 
-    #Demo 2: One hot particle - SPARSE configuration
-    print("Demo 2: One Hot Particle - Hot particle at T=100, others at T=10")
-    print("        (25 particles in 3000x3000 box)\n")
-    particles2, box2 = initialize(N=50, width=3000.0, height=3000.0)
-    hot_index = 5
-    init_hot_particle(particles2, hot_index=hot_index, hot_temperature=500,
-                      cold_temperature=10, k_B=1.0)
-    animate_simulation(particles2, box2, max_time=100.0, fps=30,
-                      save_file="demo2_one_hot_particle_animation.gif",
-                      title="Ideal Gas: One Hot Particle at T=100",
-                      hot_particle_index=hot_index)
-    
+def temp_height_correlate():
+    """ Run multiple trials and calculate correlation between temperature and mean height. Fixed hot index"""
+    temp_list = [100, 200, 300, 400, 500
+    ]
+    hot_index = np.random.randint(0,100)
 
-    print()
+    mean_heights = []
+    for temp in temp_list:
+        mean_height = simulate(hot_index, temp)
+        mean_heights.append(mean_height)   
 
+    correlation = np.corrcoef(temp_list, mean_heights)[0, 1]
+    return correlation, temp_list, mean_heights
 
 if __name__ == "__main__":
-    run_demo()
+    correlation, temp_list, mean_heights = temp_height_correlate()
+    print("Temperature-Mean Height Correlation:", correlation)
+    for t, h in zip(temp_list, mean_heights):
+        print(f"Temperature: {t}, Mean Height: {h}")
+
 
