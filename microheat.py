@@ -2,6 +2,7 @@ import numpy as np
 import math
 import heapq
 from tqdm import tqdm
+from p_tqdm import p_map
 
 
 class Particle():
@@ -228,9 +229,8 @@ def simulate(hot_index,temp):
     width = 1000
     height = 1000
     particles, box = initialize(N, width, height)
-    X, Y = box.make_grid(N)
-    events = initialize_events(particles, box)
     init_hot_particle(particles, hot_index, hot_temperature=temp, cold_temperature=50)
+    events = initialize_events(particles, box)
     current_time = 0
 
     pbar = tqdm(total=max_time)
@@ -260,14 +260,11 @@ def simulate(hot_index,temp):
 
 def temp_height_correlate():
     """ Run multiple trials and calculate correlation between temperature and mean height. Fixed hot index"""
-    temp_list = [100, 200, 300, 400, 500
+    temp_list = [50,100, 200, 300, 400, 500
     ]
     hot_index = np.random.randint(0,100)
-
-    mean_heights = []
-    for temp in temp_list:
-        mean_height = simulate(hot_index, temp)
-        mean_heights.append(mean_height)   
+ 
+    mean_heights = p_map(simulate, [hot_index]*len(temp_list), temp_list)
 
     correlation = np.corrcoef(temp_list, mean_heights)[0, 1]
     return correlation, temp_list, mean_heights
