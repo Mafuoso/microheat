@@ -2,8 +2,6 @@ import numpy as np
 import math
 import heapq
 from tqdm import tqdm
-from p_tqdm import p_map
-import matplotlib.pyplot as plt
 
 
 np.random.seed(42)  # For reproducibility
@@ -223,42 +221,89 @@ def get_mean_position(particle:Particle):
     return sum(particle.heights) / len(particle.heights)
 
 
-def simulate(hot_index,temp):
-    #Experiment Details
-    max_time = 100
-    N = 100
-    width = 1000
-    height = 1000
+def simulate(hot_index: int = None, hot_temperature: float = 500, cold_temperature: float = 50,
+             max_time: float = 100, N: int = 100, width: float = 1000, height: float = 1000,
+             sample_interval: float = 10, track_indices: list[int] = None,
+             show_progress: bool = True, k_B: float = 1.0):
+    """
+    Run a particle simulation with optional hot particle.
+
+    Args:
+        hot_index: Index of hot particle (if None, all particles at cold_temperature)
+        hot_temperature: Temperature of hot particle
+        cold_temperature: Temperature of cold/regular particles
+        max_time: Simulation duration
+        N: Number of particles
+        width: Box width
+        height: Box height
+        sample_interval: Time interval for height sampling
+        track_indices: List of particle indices to track (if None, tracks hot_index and hot_index+1)
+        show_progress: Whether to show progress bar
+        k_B: Boltzmann constant
+
+    Returns:
+        tuple: (particles, box, tracked_heights_dict)
+            - particles: Final particle states
+            - box: Box object
+            - tracked_heights_dict: {particle_index: [heights over time]}
+    """
+    # Initialize particles
     particles, box = initialize(N, width, height)
-    init_hot_particle(particles, hot_index, hot_temperature=temp, cold_temperature=50)
+
+    # Set up temperatures
+    if hot_index is not None:
+        init_hot_particle(particles, hot_index, hot_temperature=hot_temperature,
+                         cold_temperature=cold_temperature, k_B=k_B)
+    else:
+        init_velocities_equiparition(particles, temperature=cold_temperature, k_B=k_B)
+
+    # Determine which particles to track
+    if track_indices is None:
+        if hot_index is not None:
+            track_indices = [hot_index, (hot_index + 1) % N]
+        else:
+            track_indices = [0, 1]  # Track first two particles for equipartition
+
+    # Initialize tracking dictionary
+    tracked_heights = {idx: [] for idx in track_indices}
+
+    # Initialize events
     events = initialize_events(particles, box)
     current_time = 0
-    next_sample = 0.1 #sample every 0.1 time units
+    next_sample = sample_interval
 
-    pbar = tqdm(total=max_time)
+    pbar = tqdm(total=max_time, disable=not show_progress)
+
     while current_time < max_time:
-        pbar.update(current_time - pbar.n)
-        (event_time, i, j, count_i, count_j) = heapq.heappop(events) #Get the next event, if this is a wall collision j = wall name str else j = particle index
-        #validitiy check on the event
+        if show_progress:
+            pbar.update(current_time - pbar.n)
+
+        (event_time, i, j, count_i, count_j) = heapq.heappop(events)
+
+        # Validity check on the event
         if particles[i].collision_count != count_i:
             continue
-        if isinstance(j,int) and particles[j].collision_count != count_j:
+        if isinstance(j, int) and particles[j].collision_count != count_j:
             continue
-        
+
+        # Sample particle heights at regular intervals
         while next_sample <= event_time and next_sample <= max_time:
             dt = next_sample - current_time
             if dt > 0:
                 advance_particles(particles, dt)
                 current_time = next_sample
-            particles[hot_index].heights.append(particles[hot_index].y)
-            particles[(hot_index+1)%N].heights.append(particles[(hot_index+1)%N].y) # record height of a cold particle for comparison
 
-            next_sample += 10 #sample interval is 0.1
+            # Record heights of tracked particles
+            for idx in track_indices:
+                tracked_heights[idx].append(particles[idx].y)
 
-        #Advance all particles to event time
+            next_sample += sample_interval
+
+        # Advance all particles to event time
         advance_particles(particles, event_time - current_time)
         current_time = event_time
-        #Process all collisions
+
+        # Process collisions
         if isinstance(j, int):  # Particle-Particle collision
             particles[i].collide_with_particle(particles[j])
             predict_new_collisions(particles, i, box, events, current_time)
@@ -268,64 +313,13 @@ def simulate(hot_index,temp):
             predict_new_collisions(particles, i, box, events, current_time)
 
     pbar.close()
-    return get_mean_position(particles[hot_index]), get_mean_position(particles[(hot_index+1)%N]) # return mean height of hot particle and a cold particle for comparison
+
+    return particles, box, tracked_heights
 
 
-def temp_height_correlate():
-    """Run multiple trials and calculate correlation between temperature and mean height."""
-    temp_list = [50, 100, 200, 300, 400, 500]
-    hot_index = 50
-    ntrials = 10
-    
-    mean_heights_hot = []
-    mean_heights_cold = []
-    mean_diffs = []
-    std_diffs = []
-    
-    for temp in temp_list:
-        # Run ntrials simulations for this temperature
-        mean_heights = p_map(lambda _: simulate(hot_index, temp), range(ntrials))
-        
-        # Extract hot and cold heights for THIS temperature
-        hot_heights = [mh[0] for mh in mean_heights]
-        cold_heights = [mh[1] for mh in mean_heights]
-        
-        # Store means for correlation
-        mean_heights_hot.append(np.mean(hot_heights))
-        mean_heights_cold.append(np.mean(cold_heights))
-        
-        # Compute differences WITHIN this temperature
-        diffs_this_temp = np.array(hot_heights) - np.array(cold_heights)
-        mean_diffs.append(np.mean(diffs_this_temp))
-        std_diffs.append(np.std(diffs_this_temp) / np.sqrt(ntrials))  # Standard error of mean
-    
-    correlation_hot = np.corrcoef(temp_list, mean_heights_hot)[0, 1]
-    correlation_cold = np.corrcoef(temp_list, mean_heights_cold)[0, 1]
-    
-    return correlation_hot, correlation_cold, temp_list, mean_heights_hot, mean_heights_cold, mean_diffs, std_diffs
-
-def plot_results(temp_list, mean_heights_hot, mean_heights_cold, mean_diffs, std_diffs):
-    plt.figure(figsize=(10, 6))
-    plt.errorbar(temp_list, mean_diffs, yerr=std_diffs, fmt='o-', 
-                 label='Mean Height Difference (Hot - Cold)',
-                 capsize=5, capthick=2, markersize=8, linewidth=2)
-    plt.axhline(0, color='red', linestyle='--', alpha=0.5, label='No difference')
-    plt.xlabel('Temperature of Hot Particle', fontsize=12)
-    plt.ylabel('Mean Height Difference (Hot - Cold)', fontsize=12)
-    plt.title('Mean Height Difference vs Temperature of Hot Particle', fontsize=14)
-    plt.legend(fontsize=10)
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
-    plt.show()
-
-    
 if __name__ == "__main__":
-    correlation_hot, correlation_cold, temp_list, mean_heights_hot, mean_heights_cold, mean_diffs, std_diffs = temp_height_correlate()
-    print("Correlation between temperature and mean height of hot particle:", correlation_hot)
-    print("Correlation between temperature and mean height of cold particle:", correlation_cold)
-    for t, h_hot, h_cold in zip(temp_list, mean_heights_hot, mean_heights_cold):
-        print(f"Temperature: {t}, Mean Height Hot Particle: {h_hot}, Mean Height Cold Particle: {h_cold}")
-    plot_results(temp_list, mean_heights_hot, mean_heights_cold,mean_diffs, std_diffs)
-    plt.savefig("mean_height_difference_vs_temperature.png")
+    print("Microheat simulation engine")
+    print("To run experiments, use: python experiments.py")
+    print("Or import this module to use the simulation components.")
 
 

@@ -116,68 +116,98 @@ pip install numpy matplotlib tqdm
 
 ## Project Structure
 
-- **`microheat.py`** - Core physics engine (particles, collisions, event queue)
+- **`microheat.py`** - Core physics engine with `simulate()` function
+  - Particle and Box classes
+  - Collision detection and event queue
+  - `simulate()` - Main simulation function with configurable parameters
 - **`animate.py`** - Visualization and animation functions
+- **`experiments.py`** - Independent experiment configurations using `simulate()`
 
 ## Usage
 
-### Quick Start - Run the Demo
+### Quick Start - Run All Experiments
 
 ```bash
-python3 microheat.py
+python3 experiments.py
 ```
 
-This generates animated simulations showing particle dynamics with collision physics. The main loop is in `microheat.py`, which imports visualization functions from `animate.py`.
+This runs all configured experiments, generating:
+- Animated visualizations (GIF files)
+- Height time series plots (PNG files)
+- Temperature-height correlation analysis
+- Console output with statistics
 
-### Using in Your Own Code
+Each experiment is an independent function that can be run separately.
 
-#### Static Visualization
+### Run Individual Experiments
 
 ```python
-import microheat
-from animate import visualize_particles
+from experiments import experiment_equipartition, experiment_hot_particle, experiment_temp_height_correlation
 
-# Initialize particles in a grid (uses spacing based on particle radius)
-N = 16  # number of particles
-particles, box = microheat.initialize(N, width=300.0, height=300.0)
+# Experiment 1: Equipartition baseline
+experiment_equipartition(N=50, width=3000.0, height=3000.0,
+                        temperature=10.0, max_time=50.0, fps=10)
 
-# Set up velocities - Method 1: All same temperature
-microheat.init_velocities_equiparition(particles, temperature=10, k_B=1.0)
+# Experiment 2: One hot particle
+experiment_hot_particle(N=50, width=3000.0, height=3000.0,
+                       hot_index=5, hot_temperature=500.0,
+                       cold_temperature=10.0, max_time=100.0, fps=30)
 
-# OR Method 2: One hot particle
-microheat.init_hot_particle(particles, hot_index=0,
-                           hot_temperature=50,
-                           cold_temperature=5, k_B=1.0)
-
-# Create static visualization
-visualize_particles(particles, box,
-                   title="My Simulation",
-                   save_file="output.png")
+# Experiment 3: Temperature-height correlation
+results = experiment_temp_height_correlation(
+    temp_list=[50, 100, 200, 300, 400, 500],
+    hot_index=50,
+    ntrials=10
+)
 ```
 
-#### Animated Simulation
+### Using the simulate() Function
+
+The core `simulate()` function in `microheat.py` provides a flexible API for running simulations:
 
 ```python
-import microheat
-from animate import animate_simulation
+from microheat import simulate
 
-# Initialize sparse configuration (ideal gas approximation)
-particles, box = microheat.initialize(N=25, width=3000.0, height=3000.0)
-microheat.init_velocities_equiparition(particles, temperature=10, k_B=1.0)
+# Run simulation with hot particle and height tracking
+particles, box, tracked_heights = simulate(
+    hot_index=5,              # Index of hot particle (None for equipartition)
+    hot_temperature=500,      # Temperature of hot particle
+    cold_temperature=50,      # Temperature of other particles
+    max_time=100,             # Simulation duration
+    N=100,                    # Number of particles
+    width=1000,               # Box width
+    height=1000,              # Box height
+    sample_interval=10,       # Height sampling interval
+    track_indices=[5, 6, 7],  # Particles to track
+    show_progress=True,       # Display progress bar
+    k_B=1.0                   # Boltzmann constant
+)
 
-# Create smooth animation with interpolated motion
-animate_simulation(particles, box,
-                  max_time=20.0,  # simulation duration
-                  fps=30,          # frames per second
-                  save_file="simulation.gif",
-                  title="Ideal Gas Simulation")
+# tracked_heights is a dict: {particle_index: [heights over time]}
+print(f"Mean height of particle 5: {sum(tracked_heights[5])/len(tracked_heights[5])}")
 ```
 
-**Animation Features:**
-- Smooth interpolation between collision events using ballistic trajectories
-- Accurate particle sizes in visualization
-- Progress bar shows simulation status
-- Frame count automatically calculated based on physics timing
+### Creating Custom Visualizations
+
+```python
+from microheat import simulate, initialize, init_hot_particle
+from animate import animate_simulation, visualize_particles
+
+# Method 1: Use simulate() for analysis, then create separate animation
+particles_sim, box_sim, heights = simulate(hot_index=5, hot_temperature=500, max_time=100)
+
+# Create animation separately (doesn't slow down simulation)
+particles_anim, box_anim = initialize(N=100, width=1000, height=1000)
+init_hot_particle(particles_anim, hot_index=5, hot_temperature=500, cold_temperature=50)
+animate_simulation(particles_anim, box_anim, max_time=100, fps=30,
+                  save_file="my_animation.gif", hot_particle_index=5)
+
+# Method 2: Static visualization of final state
+visualize_particles(particles_sim, box_sim,
+                   title="Final State After 100 Time Units",
+                   save_file="final_state.png",
+                   hot_particle_index=5)
+```
 
 ## Roadmap / Next Steps
 
@@ -188,14 +218,21 @@ animate_simulation(particles, box,
 - ✓ Time evolution with ballistic trajectories
 - ✓ Smooth animations with interpolated motion
 - ✓ Accurate particle size visualization
+- ✓ Height time series tracking and plotting
+- ✓ Independent experiment configurations
+- ✓ `simulate()` function API for flexible simulations
+- ✓ Multi-trial temperature-height correlation analysis
+- ✓ Parallel processing for multiple simulation runs
 
 ### Current Priorities
-1. **Add measurement tools**
+1. **Additional measurement tools**
    - Track kinetic energy distribution over time
    - Measure temperature gradients (spatial distribution)
    - Record collision statistics and rates
    - Monitor energy conservation
-   - Multirun capabillties with single particle tracking for correlations ie is higher temperature corrrelated with a higher extent? 
+2. **Enhanced analysis**
+   - Velocity distribution histograms
+   - Energy conservation validation plots 
 
 ## Project Philosophy
 
