@@ -105,7 +105,7 @@ Two methods for setting up initial conditions:
 ## Installation & Requirements
 
 ```bash
-pip install numpy matplotlib tqdm
+pip install numpy matplotlib tqdm scipy
 ```
 
 **Dependencies:**
@@ -113,6 +113,8 @@ pip install numpy matplotlib tqdm
 - NumPy (array operations, math functions)
 - Matplotlib (visualization and animation)
 - tqdm (progress bars)
+- SciPy (statistical tests)
+- p_tqdm (optional, for parallel processing in correlation experiments)
 
 ## Project Structure
 
@@ -153,12 +155,18 @@ experiment_hot_particle(N=50, width=3000.0, height=3000.0,
                        hot_index=5, hot_temperature=500.0,
                        cold_temperature=10.0, max_time=100.0, fps=30)
 
-# Experiment 3: Temperature-height correlation
+# Experiment 3: Temperature-height correlation with statistical analysis
 results = experiment_temp_height_correlation(
     temp_list=[50, 100, 200, 300, 400, 500],
     hot_index=50,
     ntrials=10
 )
+# Includes:
+# - Correlation analysis
+# - Goodness of fit tests (Shapiro-Wilk, Kolmogorov-Smirnov)
+# - One-sample t-test (H₀: μ_diff = 0 vs H₁: μ_diff > 0)
+# - Confidence intervals and effect size (Cohen's d)
+# - Distribution visualization with Q-Q plot
 ```
 
 ### Using the simulate() Function
@@ -223,6 +231,11 @@ visualize_particles(particles_sim, box_sim,
 - ✓ `simulate()` function API for flexible simulations
 - ✓ Multi-trial temperature-height correlation analysis
 - ✓ Parallel processing for multiple simulation runs
+- ✓ Statistical hypothesis testing:
+  - Goodness of fit tests (Shapiro-Wilk, Kolmogorov-Smirnov)
+  - One-sample t-test for mean height differences
+  - Confidence intervals and effect size analysis
+  - Distribution visualization with Q-Q plots
 
 ### Current Priorities
 1. **Additional measurement tools**

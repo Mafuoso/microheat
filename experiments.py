@@ -8,6 +8,7 @@ function from microheat.py along with visualization tools from animate.py.
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from scipy import stats
 from microheat import simulate, initialize, init_hot_particle, init_velocities_equiparition
 from animate import animate_simulation
 
@@ -94,6 +95,69 @@ def plot_temp_height_correlation(temp_list, mean_heights_hot, mean_heights_cold,
         print(f"Temperature-height correlation plot saved to {save_file}")
     else:
         plt.show()
+
+    plt.close()
+
+
+def plot_distribution_analysis(all_diffs: np.ndarray, shapiro_stat: float, shapiro_p: float,
+                               ks_stat: float, ks_p: float, save_file: str = None):
+    """
+    Plot distribution analysis including histogram, Q-Q plot, and normality test results.
+
+    Args:
+        all_diffs: Array of all height differences (hot - cold)
+        shapiro_stat: Shapiro-Wilk test statistic
+        shapiro_p: Shapiro-Wilk p-value
+        ks_stat: Kolmogorov-Smirnov test statistic
+        ks_p: Kolmogorov-Smirnov p-value
+        save_file: If provided, save plot to this file
+    """
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Histogram with normal distribution overlay
+    ax1 = axes[0]
+    ax1.hist(all_diffs, bins=20, density=True, alpha=0.7, color='blue', edgecolor='black')
+
+    # Fit and plot normal distribution
+    mu, sigma = all_diffs.mean(), all_diffs.std()
+    x = np.linspace(all_diffs.min(), all_diffs.max(), 100)
+    ax1.plot(x, stats.norm.pdf(x, mu, sigma), 'r-', linewidth=2, label='Normal fit')
+
+    ax1.set_xlabel('Height Difference (Hot - Cold)', fontsize=11)
+    ax1.set_ylabel('Probability Density', fontsize=11)
+    ax1.set_title('Distribution of Height Differences', fontsize=12)
+    ax1.legend()
+    ax1.grid(alpha=0.3)
+
+    # Add statistics text box
+    textstr = f'μ = {mu:.2f}\nσ = {sigma:.2f}\nn = {len(all_diffs)}'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax1.text(0.05, 0.95, textstr, transform=ax1.transAxes, fontsize=10,
+            verticalalignment='top', bbox=props)
+
+    # Q-Q plot
+    ax2 = axes[1]
+    stats.probplot(all_diffs, dist="norm", plot=ax2)
+    ax2.set_title('Q-Q Plot (Normal Distribution)', fontsize=12)
+    ax2.grid(alpha=0.3)
+
+    # Add normality test results
+    test_text = f'Shapiro-Wilk: W={shapiro_stat:.4f}, p={shapiro_p:.4f}\n'
+    test_text += f'K-S Test: D={ks_stat:.4f}, p={ks_p:.4f}\n'
+    if shapiro_p > 0.05 and ks_p > 0.05:
+        test_text += 'Result: Normality NOT rejected (α=0.05)'
+    else:
+        test_text += 'Result: Normality REJECTED (α=0.05)'
+
+    props2 = dict(boxstyle='round', facecolor='lightblue', alpha=0.7)
+    ax2.text(0.05, 0.95, test_text, transform=ax2.transAxes, fontsize=9,
+            verticalalignment='top', bbox=props2)
+
+    plt.tight_layout()
+
+    if save_file:
+        plt.savefig(save_file, dpi=150, bbox_inches='tight')
+        print(f"Distribution analysis plot saved to {save_file}")
 
     plt.close()
 
@@ -302,6 +366,7 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
     mean_heights_cold = []
     mean_diffs = []
     std_diffs = []
+    all_diffs = []  # Store ALL individual differences for hypothesis testing
 
     def run_trial(args):
         """Helper function for parallel execution."""
@@ -347,9 +412,15 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
         mean_diffs.append(np.mean(diffs_this_temp))
         std_diffs.append(np.std(diffs_this_temp) / np.sqrt(ntrials))  # Standard error of mean
 
+        # Store all individual differences for hypothesis testing
+        all_diffs.extend(diffs_this_temp)
+
         print(f"  Mean height hot: {mean_heights_hot[-1]:.2f}")
         print(f"  Mean height cold: {mean_heights_cold[-1]:.2f}")
         print(f"  Mean difference: {mean_diffs[-1]:.2f} ± {std_diffs[-1]:.2f}")
+
+    # Convert to numpy array for statistical tests
+    all_diffs = np.array(all_diffs)
 
     correlation_hot = np.corrcoef(temp_list, mean_heights_hot)[0, 1]
     correlation_cold = np.corrcoef(temp_list, mean_heights_cold)[0, 1]
@@ -361,12 +432,113 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
     print(f"Correlation (temperature vs cold particle height): {correlation_cold:.4f}")
     print()
 
-    # Plot results
+    # ========================================================================
+    # HYPOTHESIS TESTING
+    # ========================================================================
+    print("=" * 60)
+    print("HYPOTHESIS TESTING")
+    print("=" * 60)
+    print()
+
+    # 1. Goodness of Fit Tests (test for normality)
+    print("1. GOODNESS OF FIT TESTS (Normality)")
+    print("-" * 60)
+
+    # Shapiro-Wilk test for normality
+    shapiro_stat, shapiro_p = stats.shapiro(all_diffs)
+    print(f"Shapiro-Wilk Test:")
+    print(f"  Test statistic (W): {shapiro_stat:.6f}")
+    print(f"  p-value: {shapiro_p:.6f}")
+    if shapiro_p > 0.05:
+        print(f"  Conclusion: Fail to reject normality (p > 0.05)")
+        print(f"              Data is consistent with normal distribution")
+    else:
+        print(f"  Conclusion: Reject normality (p ≤ 0.05)")
+        print(f"              Data deviates from normal distribution")
+    print()
+
+    # Kolmogorov-Smirnov test for normality
+    # Fit normal distribution to the data
+    mu_fit, sigma_fit = all_diffs.mean(), all_diffs.std()
+    ks_stat, ks_p = stats.kstest(all_diffs, lambda x: stats.norm.cdf(x, mu_fit, sigma_fit))
+    print(f"Kolmogorov-Smirnov Test (vs Normal distribution):")
+    print(f"  Test statistic (D): {ks_stat:.6f}")
+    print(f"  p-value: {ks_p:.6f}")
+    if ks_p > 0.05:
+        print(f"  Conclusion: Fail to reject normality (p > 0.05)")
+        print(f"              Data is consistent with normal distribution")
+    else:
+        print(f"  Conclusion: Reject normality (p ≤ 0.05)")
+        print(f"              Data deviates from normal distribution")
+    print()
+
+    # 2. Population Mean Hypothesis Test
+    print("2. POPULATION MEAN HYPOTHESIS TEST")
+    print("-" * 60)
+    print("H₀: μ_diff = 0  (no height difference between hot and cold particles)")
+    print("H₁: μ_diff > 0  (hot particles have greater mean height)")
+    print()
+
+    # One-sample t-test (one-tailed)
+    # Testing if mean difference > 0
+    t_stat, p_value_two_tail = stats.ttest_1samp(all_diffs, 0)
+    p_value_one_tail = p_value_two_tail / 2  # Convert to one-tailed
+
+    # For one-tailed test, we only care about positive differences
+    if t_stat > 0:
+        p_value_one_tail = p_value_two_tail / 2
+    else:
+        p_value_one_tail = 1 - (p_value_two_tail / 2)
+
+    print(f"One-Sample t-test (one-tailed, α=0.05):")
+    print(f"  Sample mean: {all_diffs.mean():.4f}")
+    print(f"  Sample std: {all_diffs.std():.4f}")
+    print(f"  Sample size: {len(all_diffs)}")
+    print(f"  t-statistic: {t_stat:.6f}")
+    print(f"  p-value (one-tailed): {p_value_one_tail:.6f}")
+    print()
+
+    if p_value_one_tail < 0.05:
+        print(f"  Conclusion: REJECT H₀ (p < 0.05)")
+        print(f"              Strong evidence that hot particles have greater mean height")
+    else:
+        print(f"  Conclusion: FAIL TO REJECT H₀ (p ≥ 0.05)")
+        print(f"              Insufficient evidence that hot particles have greater mean height")
+    print()
+
+    # Calculate 95% confidence interval for the mean difference
+    ci_95 = stats.t.interval(0.95, len(all_diffs)-1,
+                             loc=all_diffs.mean(),
+                             scale=stats.sem(all_diffs))
+    print(f"  95% Confidence Interval for μ_diff: [{ci_95[0]:.4f}, {ci_95[1]:.4f}]")
+    print()
+
+    # Effect size (Cohen's d)
+    cohens_d = all_diffs.mean() / all_diffs.std()
+    print(f"  Effect size (Cohen's d): {cohens_d:.4f}")
+    if abs(cohens_d) < 0.2:
+        effect_desc = "negligible"
+    elif abs(cohens_d) < 0.5:
+        effect_desc = "small"
+    elif abs(cohens_d) < 0.8:
+        effect_desc = "medium"
+    else:
+        effect_desc = "large"
+    print(f"  Effect size interpretation: {effect_desc}")
+    print()
+
+    # Plot distribution analysis
+    plot_distribution_analysis(all_diffs, shapiro_stat, shapiro_p, ks_stat, ks_p,
+                               save_file="experiment3_distribution_analysis.png")
+
+    # Plot correlation results
     plot_temp_height_correlation(temp_list, mean_heights_hot, mean_heights_cold,
                                 mean_diffs, std_diffs,
                                 save_file="experiment3_temp_height_correlation.png")
 
+    print("=" * 60)
     print("Experiment 3 complete!")
+    print("=" * 60)
     print()
 
     return {
@@ -376,7 +548,16 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
         'mean_heights_hot': mean_heights_hot,
         'mean_heights_cold': mean_heights_cold,
         'mean_diffs': mean_diffs,
-        'std_diffs': std_diffs
+        'std_diffs': std_diffs,
+        'all_diffs': all_diffs,
+        'shapiro_stat': shapiro_stat,
+        'shapiro_p': shapiro_p,
+        'ks_stat': ks_stat,
+        'ks_p': ks_p,
+        't_stat': t_stat,
+        'p_value_one_tail': p_value_one_tail,
+        'ci_95': ci_95,
+        'cohens_d': cohens_d
     }
 
 
