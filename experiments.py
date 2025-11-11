@@ -162,6 +162,97 @@ def plot_distribution_analysis(all_diffs: np.ndarray, shapiro_stat: float, shapi
     plt.close()
 
 
+def plot_height_with_collisions(times: list, heights: list, collision_events: list,
+                                hot_particle_index: int, particle_indices_map: dict,
+                                save_file: str = None, title: str = "Height vs Time with Collisions"):
+    """
+    Plot height vs time with collision markers showing when collisions occur.
+
+    Args:
+        times: List of time points for height measurements
+        heights: List of heights corresponding to times
+        collision_events: List of collision event dictionaries from simulate()
+        hot_particle_index: Index of the hot particle
+        particle_indices_map: Dict mapping particle indices to descriptions (e.g., {5: 'hot', 6: 'cold'})
+        save_file: If provided, save plot to this file
+        title: Plot title
+    """
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    # Plot height trajectory
+    ax.plot(times, heights, 'b-', linewidth=1.5, label='Hot particle height', alpha=0.7)
+
+    # Classify and plot collisions
+    collision_with_cold_below = []
+    collision_with_cold_above = []
+    collision_with_wall = []
+
+    for event in collision_events:
+        if event['collision_type'] == 'wall':
+            collision_with_wall.append((event['time'], event['height_i']))
+        elif event['collision_type'] == 'particle':
+            # Determine if hot particle collided with someone below or above
+            if event['particle_i'] == hot_particle_index:
+                # Hot particle is particle_i
+                if event['relative_position'] == 'above':
+                    # Hot particle was above the other, so other is below
+                    collision_with_cold_below.append((event['time'], event['height_i']))
+                elif event['relative_position'] == 'below':
+                    # Hot particle was below the other, so other is above
+                    collision_with_cold_above.append((event['time'], event['height_i']))
+            elif event['particle_j'] == hot_particle_index:
+                # Hot particle is particle_j
+                if event['relative_position'] == 'above':
+                    # particle_i was above particle_j (hot), so hot was below
+                    collision_with_cold_above.append((event['time'], event['height_j']))
+                elif event['relative_position'] == 'below':
+                    # particle_i was below particle_j (hot), so hot was above
+                    collision_with_cold_below.append((event['time'], event['height_j']))
+
+    # Plot collision markers
+    if collision_with_cold_below:
+        times_below, heights_below = zip(*collision_with_cold_below)
+        ax.scatter(times_below, heights_below, color='green', s=100, marker='^',
+                  label='Collision with cold below (upward boost)', zorder=5, edgecolor='black', linewidth=0.5)
+
+    if collision_with_cold_above:
+        times_above, heights_above = zip(*collision_with_cold_above)
+        ax.scatter(times_above, heights_above, color='orange', s=100, marker='v',
+                  label='Collision with cold above', zorder=5, edgecolor='black', linewidth=0.5)
+
+    if collision_with_wall:
+        times_wall, heights_wall = zip(*collision_with_wall)
+        ax.scatter(times_wall, heights_wall, color='red', s=60, marker='x',
+                  label='Wall collision', zorder=5, linewidth=2)
+
+    ax.set_xlabel('Time', fontsize=12)
+    ax.set_ylabel('Height (y-position)', fontsize=12)
+    ax.set_title(title, fontsize=14)
+    ax.legend(loc='best', fontsize=10)
+    ax.grid(True, alpha=0.3)
+
+    # Add text summary
+    total_collisions_below = len(collision_with_cold_below)
+    total_collisions_above = len(collision_with_cold_above)
+    summary_text = f'Collisions with cold below: {total_collisions_below}\n'
+    summary_text += f'Collisions with cold above: {total_collisions_above}\n'
+    if total_collisions_below + total_collisions_above > 0:
+        ratio = total_collisions_below / (total_collisions_below + total_collisions_above)
+        summary_text += f'Ratio (below / total): {ratio:.2f}'
+
+    props = dict(boxstyle='round', facecolor='lightyellow', alpha=0.8)
+    ax.text(0.02, 0.98, summary_text, transform=ax.transAxes, fontsize=10,
+            verticalalignment='top', bbox=props)
+
+    plt.tight_layout()
+
+    if save_file:
+        plt.savefig(save_file, dpi=150, bbox_inches='tight')
+        print(f"Height with collisions plot saved to {save_file}")
+
+    plt.close()
+
+
 def experiment_equipartition(N: int = 50, width: float = 3000.0, height: float = 3000.0,
                              temperature: float = 10.0, max_time: float = 50.0,
                              fps: int = 10, k_B: float = 1.0,
@@ -198,7 +289,7 @@ def experiment_equipartition(N: int = 50, width: float = 3000.0, height: float =
     # Run simulation with tracking
     print("Running simulation with height tracking...")
     sample_interval = 1.0
-    particles, box, tracked_heights = simulate(
+    particles, box, tracked_heights, _ = simulate(
         hot_index=None,  # No hot particle for equipartition
         cold_temperature=temperature,
         max_time=max_time,
@@ -278,7 +369,7 @@ def experiment_hot_particle(N: int = 50, width: float = 3000.0, height: float = 
     # Run simulation with tracking
     print("Running simulation with height tracking...")
     sample_interval = 1.0
-    particles, box, tracked_heights = simulate(
+    particles, box, tracked_heights, _ = simulate(
         hot_index=hot_index,
         hot_temperature=hot_temperature,
         cold_temperature=cold_temperature,
@@ -371,7 +462,7 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
     def run_trial(args):
         """Helper function for parallel execution."""
         temp = args
-        particles, box, tracked_heights = simulate(
+        particles, box, tracked_heights, _ = simulate(
             hot_index=hot_index,
             hot_temperature=temp,
             cold_temperature=cold_temperature,
@@ -558,6 +649,236 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
         'p_value_one_tail': p_value_one_tail,
         'ci_95': ci_95,
         'cohens_d': cohens_d
+    }
+
+
+def experiment_collision_tracking(N: int = 50, width: float = 3000.0, height: float = 3000.0,
+                                 hot_index: int = 5, hot_temperature: float = 500.0,
+                                 cold_temperature: float = 10.0, max_time: float = 100.0,
+                                 k_B: float = 1.0):
+    """
+    Experiment 4: Collision Tracking
+
+    Track collisions involving the hot particle and visualize height trajectory
+    with collision markers. This shows that rises in height correspond with
+    collisions with cold particles below.
+
+    Args:
+        N: Number of particles
+        width: Box width
+        height: Box height
+        hot_index: Index of the hot particle
+        hot_temperature: Temperature of the hot particle
+        cold_temperature: Temperature of the cold particles
+        max_time: Simulation duration
+        k_B: Boltzmann constant
+    """
+    print("=" * 60)
+    print("EXPERIMENT 4: COLLISION TRACKING")
+    print("=" * 60)
+    print(f"Hot particle at index {hot_index}: T={hot_temperature}")
+    print(f"All other particles: T={cold_temperature}")
+    print(f"Configuration: {N} particles in {width}x{height} box")
+    print(f"Tracking collisions to correlate with height changes")
+    print()
+
+    # Run simulation with collision tracking
+    print("Running simulation with collision tracking...")
+    sample_interval = 0.5  # More frequent sampling for detailed trajectory
+    particles, box, tracked_heights, collision_events = simulate(
+        hot_index=hot_index,
+        hot_temperature=hot_temperature,
+        cold_temperature=cold_temperature,
+        max_time=max_time,
+        N=N,
+        width=width,
+        height=height,
+        sample_interval=sample_interval,
+        track_indices=[hot_index],
+        show_progress=True,
+        k_B=k_B,
+        track_collisions=True
+    )
+
+    # Generate time points for plotting
+    times = [sample_interval * i for i in range(len(tracked_heights[hot_index]))]
+    heights = tracked_heights[hot_index]
+
+    # Create particle index map
+    particle_map = {hot_index: 'hot'}
+    for i in range(N):
+        if i != hot_index:
+            particle_map[i] = 'cold'
+
+    # Plot height with collision markers
+    plot_height_with_collisions(
+        times, heights, collision_events, hot_index, particle_map,
+        save_file="experiment4_collision_tracking.png",
+        title=f"Hot Particle Height with Collision Events (T_hot={hot_temperature}, T_cold={cold_temperature})"
+    )
+
+    # Analyze collision statistics
+    collisions_below = 0
+    collisions_above = 0
+
+    for event in collision_events:
+        if event['collision_type'] == 'particle':
+            if event['particle_i'] == hot_index:
+                if event['relative_position'] == 'above':
+                    collisions_below += 1
+                elif event['relative_position'] == 'below':
+                    collisions_above += 1
+            elif event['particle_j'] == hot_index:
+                if event['relative_position'] == 'above':
+                    collisions_above += 1
+                elif event['relative_position'] == 'below':
+                    collisions_below += 1
+
+    total_particle_collisions = collisions_below + collisions_above
+
+    print("\n" + "=" * 60)
+    print("COLLISION ANALYSIS")
+    print("=" * 60)
+    print(f"Total particle collisions involving hot particle: {total_particle_collisions}")
+    print(f"  Collisions with cold particle below: {collisions_below}")
+    print(f"  Collisions with cold particle above: {collisions_above}")
+    if total_particle_collisions > 0:
+        ratio = collisions_below / total_particle_collisions
+        print(f"  Ratio (below / total): {ratio:.3f}")
+        print()
+        if ratio > 0.5:
+            print("  Result: Hot particle experiences MORE collisions with cold particles below")
+            print("          This supports the geometric collision bias theory!")
+        else:
+            print("  Result: No significant bias toward collisions below")
+    print()
+
+    print("Experiment 4 complete!")
+    print()
+
+    return {
+        'particles': particles,
+        'box': box,
+        'tracked_heights': tracked_heights,
+        'collision_events': collision_events,
+        'collisions_below': collisions_below,
+        'collisions_above': collisions_above
+    }
+
+
+def experiment_control_no_gravity(N: int = 50, width: float = 3000.0, height: float = 3000.0,
+                                   hot_index: int = 5, hot_temperature: float = 500.0,
+                                   cold_temperature: float = 10.0, max_time: float = 100.0,
+                                   k_B: float = 1.0):
+    """
+    Experiment 5: Control - No Gravity (g=0)
+
+    Control experiment with gravity set to zero. Without gravity, there should be
+    no height stratification or bias in collision geometry. This tests whether the
+    observed effects in normal experiments are truly due to gravity-induced
+    ballistic stratification.
+
+    Args:
+        N: Number of particles
+        width: Box width
+        height: Box height
+        hot_index: Index of the hot particle
+        hot_temperature: Temperature of the hot particle
+        cold_temperature: Temperature of the cold particles
+        max_time: Simulation duration
+        k_B: Boltzmann constant
+    """
+    print("=" * 60)
+    print("EXPERIMENT 5: CONTROL - NO GRAVITY (g=0)")
+    print("=" * 60)
+    print(f"Hot particle at index {hot_index}: T={hot_temperature}")
+    print(f"All other particles: T={cold_temperature}")
+    print(f"Configuration: {N} particles in {width}x{height} box")
+    print(f"GRAVITY SET TO ZERO - control experiment")
+    print()
+
+    # Run simulation with collision tracking and g=0
+    print("Running simulation with g=0 and collision tracking...")
+    sample_interval = 0.5
+    particles, box, tracked_heights, collision_events = simulate(
+        hot_index=hot_index,
+        hot_temperature=hot_temperature,
+        cold_temperature=cold_temperature,
+        max_time=max_time,
+        N=N,
+        width=width,
+        height=height,
+        sample_interval=sample_interval,
+        track_indices=[hot_index],
+        show_progress=True,
+        k_B=k_B,
+        gravity=0.0,  # NO GRAVITY
+        track_collisions=True
+    )
+
+    # Generate time points for plotting
+    times = [sample_interval * i for i in range(len(tracked_heights[hot_index]))]
+    heights = tracked_heights[hot_index]
+
+    # Create particle index map
+    particle_map = {hot_index: 'hot'}
+    for i in range(N):
+        if i != hot_index:
+            particle_map[i] = 'cold'
+
+    # Plot height with collision markers
+    plot_height_with_collisions(
+        times, heights, collision_events, hot_index, particle_map,
+        save_file="experiment5_control_no_gravity.png",
+        title=f"Control (g=0): Hot Particle Height with Collisions (T_hot={hot_temperature}, T_cold={cold_temperature})"
+    )
+
+    # Analyze collision statistics
+    collisions_below = 0
+    collisions_above = 0
+
+    for event in collision_events:
+        if event['collision_type'] == 'particle':
+            if event['particle_i'] == hot_index:
+                if event['relative_position'] == 'above':
+                    collisions_below += 1
+                elif event['relative_position'] == 'below':
+                    collisions_above += 1
+            elif event['particle_j'] == hot_index:
+                if event['relative_position'] == 'above':
+                    collisions_above += 1
+                elif event['relative_position'] == 'below':
+                    collisions_below += 1
+
+    total_particle_collisions = collisions_below + collisions_above
+
+    print("\n" + "=" * 60)
+    print("COLLISION ANALYSIS (CONTROL - g=0)")
+    print("=" * 60)
+    print(f"Total particle collisions involving hot particle: {total_particle_collisions}")
+    print(f"  Collisions with cold particle below: {collisions_below}")
+    print(f"  Collisions with cold particle above: {collisions_above}")
+    if total_particle_collisions > 0:
+        ratio = collisions_below / total_particle_collisions
+        print(f"  Ratio (below / total): {ratio:.3f}")
+        print()
+        if abs(ratio - 0.5) < 0.1:
+            print("  Result: No significant bias (ratio ≈ 0.5)")
+            print("          This confirms gravity is necessary for the collision bias!")
+        else:
+            print(f"  Result: Unexpected bias even without gravity (ratio = {ratio:.3f})")
+    print()
+
+    print("Experiment 5 complete!")
+    print()
+
+    return {
+        'particles': particles,
+        'box': box,
+        'tracked_heights': tracked_heights,
+        'collision_events': collision_events,
+        'collisions_below': collisions_below,
+        'collisions_above': collisions_above
     }
 
 
