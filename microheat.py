@@ -224,7 +224,8 @@ def get_mean_position(particle:Particle):
 def simulate(hot_index: int = None, hot_temperature: float = 500, cold_temperature: float = 50,
              max_time: float = 100, N: int = 100, width: float = 1000, height: float = 1000,
              sample_interval: float = 10, track_indices: list[int] = None,
-             show_progress: bool = True, k_B: float = 1.0):
+             show_progress: bool = True, k_B: float = 1.0, gravity: float = 9.8,
+             track_collisions: bool = False):
     """
     Run a particle simulation with optional hot particle.
 
@@ -240,15 +241,22 @@ def simulate(hot_index: int = None, hot_temperature: float = 500, cold_temperatu
         track_indices: List of particle indices to track (if None, tracks hot_index and hot_index+1)
         show_progress: Whether to show progress bar
         k_B: Boltzmann constant
+        gravity: Gravitational acceleration (set to 0 for control experiment)
+        track_collisions: Whether to track collision events
 
     Returns:
-        tuple: (particles, box, tracked_heights_dict)
+        tuple: (particles, box, tracked_heights_dict, collision_events)
             - particles: Final particle states
             - box: Box object
             - tracked_heights_dict: {particle_index: [heights over time]}
+            - collision_events: list of collision dicts (if track_collisions=True), else None
     """
     # Initialize particles
     particles, box = initialize(N, width, height)
+
+    # Set gravity for all particles
+    for p in particles:
+        p.g = gravity
 
     # Set up temperatures
     if hot_index is not None:
@@ -266,6 +274,9 @@ def simulate(hot_index: int = None, hot_temperature: float = 500, cold_temperatu
 
     # Initialize tracking dictionary
     tracked_heights = {idx: [] for idx in track_indices}
+
+    # Initialize collision tracking
+    collision_events = [] if track_collisions else None
 
     # Initialize events
     events = initialize_events(particles, box)
@@ -305,16 +316,49 @@ def simulate(hot_index: int = None, hot_temperature: float = 500, cold_temperatu
 
         # Process collisions
         if isinstance(j, int):  # Particle-Particle collision
+            # Track collision if requested and involves tracked particle
+            if track_collisions and (i in track_indices or j in track_indices):
+                # Determine relative positions before collision
+                relative_position = "same_height"
+                if particles[i].y > particles[j].y + 0.1:  # i is above j
+                    relative_position = "above"
+                elif particles[i].y < particles[j].y - 0.1:  # i is below j
+                    relative_position = "below"
+
+                collision_events.append({
+                    'time': current_time,
+                    'particle_i': i,
+                    'particle_j': j,
+                    'height_i': particles[i].y,
+                    'height_j': particles[j].y,
+                    'vy_i_before': particles[i].vy,
+                    'vy_j_before': particles[j].vy,
+                    'relative_position': relative_position,
+                    'collision_type': 'particle'
+                })
+
             particles[i].collide_with_particle(particles[j])
             predict_new_collisions(particles, i, box, events, current_time)
             predict_new_collisions(particles, j, box, events, current_time)
         else:  # Particle-Wall collision (j is a string)
+            # Track wall collision if requested and involves tracked particle
+            if track_collisions and i in track_indices:
+                collision_events.append({
+                    'time': current_time,
+                    'particle_i': i,
+                    'particle_j': None,
+                    'wall': j,
+                    'height_i': particles[i].y,
+                    'vy_i_before': particles[i].vy,
+                    'collision_type': 'wall'
+                })
+
             particles[i].collide_with_wall(j)
             predict_new_collisions(particles, i, box, events, current_time)
 
     pbar.close()
 
-    return particles, box, tracked_heights
+    return particles, box, tracked_heights, collision_events
 
 
 if __name__ == "__main__":
