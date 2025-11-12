@@ -893,6 +893,398 @@ def experiment_control_no_gravity(N: int = 50, width: float = 3000.0, height: fl
     }
 
 
+def experiment_definitive_collision_bias_test(
+    T_hot: float = 500.0,
+    T_cold: float = 50.0,
+    max_time: float = 10.0,
+    ntrials: int = 20,
+    k_B: float = 1.0
+):
+    """
+    Experiment 6: DEFINITIVE COLLISION BIAS TEST
+
+    The critical experiment: Does elevation depend on collision rate at constant temperature?
+
+    Tests three scenarios:
+    1. Pure ballistics (N=1, no collisions possible)
+    2. Sparse system (N=100, box=1000, Kn~0.56, few collisions)
+    3. Dense system (N=500, box=500, Kn~0.1, many collisions)
+
+    If collision bias is real: elevation should INCREASE with density (more collisions)
+    If only ballistics: elevation should be CONSTANT (h ~ v²/2g independent of collisions)
+
+    Args:
+        T_hot: Temperature of hot particle
+        T_cold: Temperature of cold particles
+        max_time: Simulation duration
+        ntrials: Number of trials per configuration
+        k_B: Boltzmann constant
+    """
+    print("=" * 80)
+    print("EXPERIMENT 6: DEFINITIVE COLLISION BIAS TEST")
+    print("=" * 80)
+    print("\nThis experiment tests whether collision rate affects elevation")
+    print("at constant temperature. This distinguishes pure ballistics from")
+    print("collision bias mechanism.\n")
+    print(f"Temperature: T_hot={T_hot}, T_cold={T_cold}")
+    print(f"Trials per configuration: {ntrials}")
+    print(f"Simulation time: {max_time} seconds")
+    print()
+
+    configurations = [
+        {
+            'name': 'Pure Ballistics (N=1)',
+            'N': 1,
+            'width': 1000,
+            'height': 1000,
+            'description': 'Single particle - NO collisions possible',
+            'expected_Kn': 'N/A',
+            'expected_collisions': 0,
+        },
+        {
+            'name': 'Sparse (Current Setup)',
+            'N': 100,
+            'width': 1000,
+            'height': 1000,
+            'description': 'Your current configuration',
+            'expected_Kn': 0.56,
+            'expected_collisions': '~0-2 per particle',
+        },
+        {
+            'name': 'Dense',
+            'N': 500,
+            'width': 500,
+            'height': 500,
+            'description': 'High collision rate',
+            'expected_Kn': 0.1,
+            'expected_collisions': '~5-20 per particle',
+        },
+    ]
+
+    results = []
+
+    for config in configurations:
+        print("=" * 80)
+        print(f"TESTING: {config['name']}")
+        print("=" * 80)
+        print(f"Description: {config['description']}")
+        print(f"Configuration: N={config['N']}, box={config['width']}×{config['height']}")
+        print(f"Expected Kn: {config['expected_Kn']}")
+        print(f"Expected collisions: {config['expected_collisions']}")
+        print()
+
+        elevations = []
+        collision_counts = []
+        collisions_below_counts = []
+        collisions_above_counts = []
+
+        # Run multiple trials
+        if PARALLEL_AVAILABLE and ntrials > 5:
+            print(f"Running {ntrials} trials in parallel...")
+
+            def run_trial_wrapper(trial_num):
+                # Determine indices
+                hot_idx = 0
+                cold_idx = 1 if config['N'] > 1 else None
+                track_indices = [hot_idx] if cold_idx is None else [hot_idx, cold_idx]
+
+                # Run simulation
+                particles, box, tracked_heights, collision_events = simulate(
+                    hot_index=hot_idx if cold_idx is not None else None,
+                    hot_temperature=T_hot,
+                    cold_temperature=T_cold,
+                    max_time=max_time,
+                    N=config['N'],
+                    width=config['width'],
+                    height=config['height'],
+                    sample_interval=1.0,
+                    track_indices=track_indices,
+                    show_progress=False,
+                    k_B=k_B,
+                    track_collisions=True
+                )
+
+                # Calculate elevation
+                hot_mean = np.mean(tracked_heights[hot_idx])
+                cold_mean = np.mean(tracked_heights[cold_idx]) if cold_idx is not None else config['height']/2
+                elevation = hot_mean - cold_mean
+
+                # Count collisions
+                total_collisions = len([e for e in collision_events if e['collision_type'] == 'particle']) if collision_events else 0
+
+                # Count collision geometry
+                below = 0
+                above = 0
+                if collision_events:
+                    for event in collision_events:
+                        if event['collision_type'] == 'particle':
+                            if event['particle_i'] == hot_idx:
+                                if event['relative_position'] == 'above':
+                                    below += 1
+                                elif event['relative_position'] == 'below':
+                                    above += 1
+                            elif event['particle_j'] == hot_idx:
+                                if event['relative_position'] == 'above':
+                                    above += 1
+                                elif event['relative_position'] == 'below':
+                                    below += 1
+
+                return elevation, total_collisions, below, above
+
+            trial_results = p_map(run_trial_wrapper, range(ntrials))
+
+            for elevation, total_coll, below, above in trial_results:
+                elevations.append(elevation)
+                collision_counts.append(total_coll)
+                collisions_below_counts.append(below)
+                collisions_above_counts.append(above)
+
+        else:
+            print(f"Running {ntrials} trials sequentially...")
+            for trial in tqdm(range(ntrials), desc=f"{config['name']}"):
+                # Determine indices
+                hot_idx = 0
+                cold_idx = 1 if config['N'] > 1 else None
+                track_indices = [hot_idx] if cold_idx is None else [hot_idx, cold_idx]
+
+                # Run simulation
+                particles, box, tracked_heights, collision_events = simulate(
+                    hot_index=hot_idx if cold_idx is not None else None,
+                    hot_temperature=T_hot,
+                    cold_temperature=T_cold,
+                    max_time=max_time,
+                    N=config['N'],
+                    width=config['width'],
+                    height=config['height'],
+                    sample_interval=1.0,
+                    track_indices=track_indices,
+                    show_progress=False,
+                    k_B=k_B,
+                    track_collisions=True
+                )
+
+                # Calculate elevation
+                hot_mean = np.mean(tracked_heights[hot_idx])
+                cold_mean = np.mean(tracked_heights[cold_idx]) if cold_idx is not None else config['height']/2
+                elevations.append(hot_mean - cold_mean)
+
+                # Count collisions
+                total_collisions = len([e for e in collision_events if e['collision_type'] == 'particle']) if collision_events else 0
+                collision_counts.append(total_collisions)
+
+                # Count collision geometry
+                below = 0
+                above = 0
+                if collision_events:
+                    for event in collision_events:
+                        if event['collision_type'] == 'particle':
+                            if event['particle_i'] == hot_idx:
+                                if event['relative_position'] == 'above':
+                                    below += 1
+                                elif event['relative_position'] == 'below':
+                                    above += 1
+                            elif event['particle_j'] == hot_idx:
+                                if event['relative_position'] == 'above':
+                                    above += 1
+                                elif event['relative_position'] == 'below':
+                                    below += 1
+
+                collisions_below_counts.append(below)
+                collisions_above_counts.append(above)
+
+        # Store results
+        result = {
+            'config': config,
+            'mean_elevation': np.mean(elevations),
+            'std_elevation': np.std(elevations),
+            'sem_elevation': np.std(elevations) / np.sqrt(ntrials),
+            'mean_collisions': np.mean(collision_counts),
+            'mean_collisions_below': np.mean(collisions_below_counts),
+            'mean_collisions_above': np.mean(collisions_above_counts),
+            'elevations': elevations,
+        }
+        results.append(result)
+
+        print(f"\nRESULTS for {config['name']}:")
+        print(f"  Mean elevation: {result['mean_elevation']:.2f} ± {result['sem_elevation']:.2f}")
+        print(f"  Mean collisions (hot particle): {result['mean_collisions']:.2f}")
+        print(f"    Collisions below: {result['mean_collisions_below']:.2f}")
+        print(f"    Collisions above: {result['mean_collisions_above']:.2f}")
+        if result['mean_collisions'] > 0:
+            ratio = result['mean_collisions_below'] / (result['mean_collisions_below'] + result['mean_collisions_above'])
+            print(f"    Ratio (below/total): {ratio:.3f}")
+        print()
+
+    # ========================================================================
+    # STATISTICAL COMPARISON
+    # ========================================================================
+    print("\n" + "=" * 80)
+    print("DEFINITIVE TEST RESULTS")
+    print("=" * 80)
+    print()
+
+    # Extract results
+    pure_ballistics = results[0]
+    sparse = results[1]
+    dense = results[2]
+
+    print("ELEVATION SUMMARY:")
+    print(f"  Pure Ballistics (N=1):  {pure_ballistics['mean_elevation']:8.2f} ± {pure_ballistics['sem_elevation']:.2f}")
+    print(f"  Sparse (Kn~0.5):        {sparse['mean_elevation']:8.2f} ± {sparse['sem_elevation']:.2f}")
+    print(f"  Dense (Kn~0.1):         {dense['mean_elevation']:8.2f} ± {dense['sem_elevation']:.2f}")
+    print()
+
+    # Statistical tests
+    print("STATISTICAL TESTS:")
+    print("-" * 80)
+
+    # Test 1: Sparse vs Pure Ballistics
+    t_stat_1, p_value_1 = stats.ttest_ind(sparse['elevations'], pure_ballistics['elevations'])
+    print(f"\n1. Sparse vs Pure Ballistics (t-test):")
+    print(f"   t-statistic: {t_stat_1:.4f}")
+    print(f"   p-value: {p_value_1:.6f}")
+    if p_value_1 > 0.05:
+        print(f"   → NO significant difference (p > 0.05)")
+        print(f"   → Sparse system elevation is PURE BALLISTICS!")
+    else:
+        print(f"   → Significant difference (p < 0.05)")
+
+    # Test 2: Dense vs Sparse
+    t_stat_2, p_value_2 = stats.ttest_ind(dense['elevations'], sparse['elevations'])
+    print(f"\n2. Dense vs Sparse (t-test):")
+    print(f"   t-statistic: {t_stat_2:.4f}")
+    print(f"   p-value: {p_value_2:.6f}")
+    if p_value_2 < 0.05 and dense['mean_elevation'] > sparse['mean_elevation']:
+        print(f"   → Dense SIGNIFICANTLY HIGHER (p < 0.05)")
+        print(f"   → COLLISION BIAS CONFIRMED!")
+    elif p_value_2 > 0.05:
+        print(f"   → NO significant difference (p > 0.05)")
+        print(f"   → No collision bias effect")
+    else:
+        print(f"   → Dense LOWER than sparse")
+        print(f"   → Thermalization dominates")
+
+    # Test 3: Dense vs Pure Ballistics
+    t_stat_3, p_value_3 = stats.ttest_ind(dense['elevations'], pure_ballistics['elevations'])
+    print(f"\n3. Dense vs Pure Ballistics (t-test):")
+    print(f"   t-statistic: {t_stat_3:.4f}")
+    print(f"   p-value: {p_value_3:.6f}")
+
+    print()
+    print("=" * 80)
+    print("INTERPRETATION")
+    print("=" * 80)
+    print()
+
+    # Interpret results
+    sparse_vs_pure = abs(sparse['mean_elevation'] - pure_ballistics['mean_elevation']) / pure_ballistics['sem_elevation']
+    dense_vs_sparse = (dense['mean_elevation'] - sparse['mean_elevation']) / sparse['sem_elevation']
+
+    if sparse_vs_pure < 2:  # Less than 2 standard errors difference
+        print("✓ FINDING 1: Sparse ≈ Pure Ballistics")
+        print("  → Your current system (N=100, box=1000) has TOO FEW collisions")
+        print("  → Elevation is from ballistics alone (h ~ v²/2g)")
+        print("  → NOT testing collision bias mechanism!")
+        print()
+
+    if dense_vs_sparse > 2 and dense['mean_elevation'] > sparse['mean_elevation']:
+        print("✓ FINDING 2: Dense > Sparse (SIGNIFICANT)")
+        print("  → More collisions → MORE elevation")
+        print("  → COLLISION BIAS MECHANISM CONFIRMED!")
+        print("  → Geometric bias is REAL and measurable!")
+        print()
+    elif abs(dense_vs_sparse) < 2:
+        print("✗ FINDING 2: Dense ≈ Sparse")
+        print("  → Collision rate doesn't affect elevation")
+        print("  → NO collision bias - only pure ballistics")
+        print()
+    else:
+        print("✗ FINDING 2: Dense < Sparse")
+        print("  → More collisions → LESS elevation")
+        print("  → Thermalization overwhelms any collision bias")
+        print()
+
+    # ========================================================================
+    # VISUALIZATION
+    # ========================================================================
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+    # Plot 1: Elevation vs Configuration
+    ax1 = axes[0]
+    x_pos = [0, 1, 2]
+    elevations_mean = [r['mean_elevation'] for r in results]
+    elevations_sem = [r['sem_elevation'] for r in results]
+    labels = ['Pure\nBallistics\n(N=1)', 'Sparse\n(Kn~0.5)\nN=100', 'Dense\n(Kn~0.1)\nN=500']
+    colors = ['gray', 'orange', 'red']
+
+    bars = ax1.bar(x_pos, elevations_mean, yerr=elevations_sem,
+                   color=colors, alpha=0.7, capsize=10, edgecolor='black', linewidth=1.5)
+    ax1.set_xticks(x_pos)
+    ax1.set_xticklabels(labels, fontsize=10)
+    ax1.set_ylabel('Mean Elevation (Hot - Cold)', fontsize=12)
+    ax1.set_title('Elevation vs Collision Rate', fontsize=14, fontweight='bold')
+    ax1.axhline(0, color='black', linestyle='--', linewidth=1)
+    ax1.grid(axis='y', alpha=0.3)
+
+    # Add significance stars
+    if p_value_2 < 0.05:
+        y_max = max(elevations_mean) + max(elevations_sem) + 10
+        ax1.plot([1, 2], [y_max, y_max], 'k-', linewidth=1.5)
+        significance = '***' if p_value_2 < 0.001 else ('**' if p_value_2 < 0.01 else '*')
+        ax1.text(1.5, y_max + 5, significance, ha='center', fontsize=16, fontweight='bold')
+
+    # Plot 2: Collision Counts
+    ax2 = axes[1]
+    collision_means = [r['mean_collisions'] for r in results]
+    ax2.bar(x_pos, collision_means, color=colors, alpha=0.7, edgecolor='black', linewidth=1.5)
+    ax2.set_xticks(x_pos)
+    ax2.set_xticklabels(labels, fontsize=10)
+    ax2.set_ylabel('Mean Collisions (Hot Particle)', fontsize=12)
+    ax2.set_title('Collision Rate by Configuration', fontsize=14, fontweight='bold')
+    ax2.grid(axis='y', alpha=0.3)
+
+    # Plot 3: Collision Geometry Ratio
+    ax3 = axes[2]
+    ratios = []
+    for r in results[1:]:  # Skip N=1 (no collisions)
+        total = r['mean_collisions_below'] + r['mean_collisions_above']
+        ratio = r['mean_collisions_below'] / total if total > 0 else 0.5
+        ratios.append(ratio)
+
+    x_pos_ratios = [1, 2]
+    ax3.bar(x_pos_ratios, ratios, color=colors[1:], alpha=0.7, edgecolor='black', linewidth=1.5)
+    ax3.axhline(0.5, color='red', linestyle='--', linewidth=2, label='No bias (0.5)')
+    ax3.set_xticks(x_pos_ratios)
+    ax3.set_xticklabels(labels[1:], fontsize=10)
+    ax3.set_ylabel('Collision Ratio (Below / Total)', fontsize=12)
+    ax3.set_title('Geometric Collision Bias', fontsize=14, fontweight='bold')
+    ax3.set_ylim([0, 1])
+    ax3.legend()
+    ax3.grid(axis='y', alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig('experiment6_definitive_test.png', dpi=150, bbox_inches='tight')
+    print("\nPlot saved to: experiment6_definitive_test.png")
+    plt.close()
+
+    print()
+    print("=" * 80)
+    print("Experiment 6 complete!")
+    print("=" * 80)
+    print()
+
+    return {
+        'results': results,
+        'pure_ballistics': pure_ballistics,
+        'sparse': sparse,
+        'dense': dense,
+        'p_sparse_vs_pure': p_value_1,
+        'p_dense_vs_sparse': p_value_2,
+        'p_dense_vs_pure': p_value_3,
+    }
+
+
 def run_all_experiments():
     """
     Run all experiments in sequence.
