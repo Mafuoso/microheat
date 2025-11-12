@@ -12,6 +12,8 @@ from scipy import stats
 from microheat import simulate, initialize, init_hot_particle, init_velocities_equiparition
 from animate import animate_simulation
 
+#np.random.seed(42)  # For reproducibility, might need to remove this for statistical experiments
+
 # Try to import p_map for parallel processing, fall back to sequential if not available
 try:
     from p_tqdm import p_map
@@ -364,6 +366,8 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
 
     mean_heights_hot = []
     mean_heights_cold = []
+    std_heights_hot = []   
+    std_heights_cold = []
     mean_diffs = []
     std_diffs = []
     all_diffs = []  # Store ALL individual differences for hypothesis testing
@@ -386,7 +390,11 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
         # Calculate mean heights from tracked data
         hot_mean = np.mean(tracked_heights[hot_index])
         cold_mean = np.mean(tracked_heights[(hot_index + 1) % N])
-        return hot_mean, cold_mean
+        hot_std = np.std(tracked_heights[hot_index])
+        cold_std = np.std(tracked_heights[(hot_index + 1) % N])
+         
+        
+        return hot_mean, cold_mean, hot_std, cold_std 
 
     for temp in temp_list:
         print(f"\nTesting temperature T={temp}...")
@@ -402,21 +410,24 @@ def experiment_temp_height_correlation(temp_list: list[float] = None,
         # Extract hot and cold heights for THIS temperature
         hot_heights = [r[0] for r in results]
         cold_heights = [r[1] for r in results]
+        hot_stds = [r[2] for r in results]
+        cold_stds = [r[3] for r in results]
 
         # Store means for correlation
         mean_heights_hot.append(np.mean(hot_heights))
         mean_heights_cold.append(np.mean(cold_heights))
-
+        std_heights_cold.append(np.std(cold_heights) / np.sqrt(ntrials))
+        std_heights_hot.append(np.std(hot_heights) / np.sqrt(ntrials))  # Standard error of mean for individuals and not differences
         # Compute differences WITHIN this temperature
         diffs_this_temp = np.array(hot_heights) - np.array(cold_heights)
         mean_diffs.append(np.mean(diffs_this_temp))
-        std_diffs.append(np.std(diffs_this_temp) / np.sqrt(ntrials))  # Standard error of mean
+        std_diffs.append(np.std(diffs_this_temp) / np.sqrt(ntrials))  # Standard error of mean, why is this 0? 
 
         # Store all individual differences for hypothesis testing
         all_diffs.extend(diffs_this_temp)
 
-        print(f"  Mean height hot: {mean_heights_hot[-1]:.2f}")
-        print(f"  Mean height cold: {mean_heights_cold[-1]:.2f}")
+        print(f"  Mean height hot: {mean_heights_hot[-1]:.2f} +/- {std_heights_hot[-1]:.2f}")
+        print(f"  Mean height cold: {mean_heights_cold[-1]:.2f} +/- {std_heights_cold[-1]:.2f}")
         print(f"  Mean difference: {mean_diffs[-1]:.2f} ± {std_diffs[-1]:.2f}")
 
     # Convert to numpy array for statistical tests
@@ -565,29 +576,23 @@ def run_all_experiments():
     """
     Run all experiments in sequence.
     """
-    print("\n" + "=" * 60)
-    print("MICROHEAT: EXPERIMENTAL SUITE")
-    print("=" * 60)
-    print()
-    print("Testing the geometric collision bias theory")
-    print()
+   
+    # # Run Experiment 1: Equipartition
+    # experiment_equipartition(N=50, width=3000.0, height=3000.0,
+    #                        temperature=10.0, max_time=50.0, fps=10)
 
-    # Run Experiment 1: Equipartition
-    experiment_equipartition(N=50, width=3000.0, height=3000.0,
-                           temperature=10.0, max_time=50.0, fps=10)
-
-    # Run Experiment 2: One Hot Particle
-    experiment_hot_particle(N=50, width=3000.0, height=3000.0,
-                          hot_index=5, hot_temperature=500.0,
-                          cold_temperature=10.0, max_time=100.0, fps=30)
+    # # Run Experiment 2: One Hot Particle
+    # experiment_hot_particle(N=50, width=3000.0, height=3000.0,
+    #                       hot_index=5, hot_temperature=500.0,
+    #                       cold_temperature=10.0, max_time=100.0, fps=30)
 
     # Run Experiment 3: Temperature-Height Correlation
     experiment_temp_height_correlation(
-        temp_list=[50, 100, 200, 300, 400, 500],
+        temp_list= [50,100,150,200,250,300,350,400,450,500],
         hot_index=50,
         cold_temperature=50,
         ntrials=10,
-        max_time=100,
+        max_time=10,
         N=100,
         width=1000,
         height=1000

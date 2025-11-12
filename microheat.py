@@ -4,7 +4,7 @@ import heapq
 from tqdm import tqdm
 
 
-np.random.seed(42)  # For reproducibility
+#np.random.seed(42)  # For reproducibility
 class Particle():
 
     def __init__(self, x, y):
